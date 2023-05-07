@@ -3,16 +3,18 @@ import json
 import os
 import re
 
+from common.config import *
+
 # Function to read the configuration from a JSON file
 def read_config(file_path):
     with open(file_path, 'r') as file:
         return json.load(file)
 
 # Read the configuration from the config.json file
-config = read_config('config.json')
+# config = read_config('config.json')
 
 # Connect to PostgreSQL database using the configuration
-conn = psycopg2.connect(**config['entry_db'])
+conn = psycopg2.connect(**DATABASE_CONFIG)
 
 cur = conn.cursor()
 
@@ -92,11 +94,10 @@ def insert_into_preprocess(parsed_data):
     cur.close()
 
 
-if __name__ == "__main__":
-
-    batch_size = 1000
+def run():
+    batch_size = 10
     offset = 0
-    max_number = 20000
+    max_number = 20
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(f"SELECT DISTINCT ON (function) id, function, lineno, arg_id, argno FROM timout LIMIT {batch_size} OFFSET {offset}")
