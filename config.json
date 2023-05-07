@@ -1,0 +1,8 @@
+{
+    "entry_db": {
+        "dbname": "ubidb1",
+        "user": "ubiuser1",
+        "password": "ubitect",
+        "host": "192.168.1.134"
+    }
+}
