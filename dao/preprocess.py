@@ -1,3 +1,7 @@
+from common.config import LINUX_PATH
+import os
+import re
+
 class Preprocess:
     def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx) -> None:
         self.id = id
@@ -8,3 +12,23 @@ class Preprocess:
         self.preprocess = preprocess
         self.raw_ctx = raw_ctx
 
+
+    def update_raw_ctx(self):
+        file_path = os.path.join(LINUX_PATH, self.file)
+        function_start = -1
+
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+
+        for i in range(self.line_no - 1, -1, -1):
+            line = lines[i]
+            if function_start == -1 and line == "{\n":
+                function_start = i + 1
+
+            if function_start != -1:
+                break
+
+        if function_start != -1:
+            self.raw_ctx = ''.join(lines[function_start:self.line_no])
+        else:
+            print("Function not found in the file.")

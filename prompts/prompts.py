@@ -8,15 +8,16 @@ class Prompt:
 # preprocess: version v2.6 (May 6, 2023)
 __preprocess_system_text = """
 Given the context and the suspicious variable, tell me which function that could initialize the variable before its use. Additionally, points out the after function calling check of the function if any.
-
 The after function check (AFC) is defined as follow:
 A. If a function call is executed within/after an immediate boolean condition judgment, as they may impact the initialization of the variables in question. For example:
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
 Here, the post-condition ">=4" indicates that when this condition is true, the first four parameters (a, b, c, and d) must be initialized.
-B. "earlier return" may occur due to a failed function call. In these scenarios, you need to analyze the code considering that the function has run successfully (i.e., the AFC is `!ret_val`). For example,
+B. "earlier return" may occur due to a failed function call. For example,
 ret_val = func(...); if (ret_val) { return/break; }
-If you don't observe any early returns that affect the control flow, assume there's no AFC. For example:
-if(ret_val){//you don’t find any break or return}
+In these scenarios, you should consider that the function has run successfully (i.e., the AFC is `!ret_val`).
+If you see some if(...) after the function call but don't observe any early returns that affect the control flow, you should say there's no AFC (AFC: None). For example:
+if(...){//you don’t find any break or return}
+All context I give you is complete and sufficient, you shouldn’t assume there are some hidden break or returns.
 """
 
 __preprocess_json_gen = """
@@ -26,6 +27,7 @@ Based on you analyze above, generate a json format result like this:
    "suspicous": ["a", "b", "c", "d"],
    "afc": "ret_val >=4"
 }
+if there's no afc, say "afc": null
 """
 
 # analyze: version v2.6 (May 6, 2023)
@@ -64,5 +66,5 @@ For instance:
 
 ####################
 
-preprocess_prompt = Prompt(__preprocess_system_text, __preprocess_json_gen)
-analyze_prompt = Prompt(__analyze_system_text, __analyze_json_gen)
+PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen)
+AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen)
