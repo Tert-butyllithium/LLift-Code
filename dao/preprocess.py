@@ -1,6 +1,5 @@
 from common.config import LINUX_PATH
 import os
-import re
 
 class Preprocess:
     def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis) -> None:

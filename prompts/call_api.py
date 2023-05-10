@@ -64,7 +64,7 @@ def call_gpt_analysis(prep:Preprocess, prompt=AnalyzePrompt, model="gpt-3.5-turb
 
 def parse_json_response(response):
     """
-    the response would be like:
+    The response would be like:
     Based on the analysis above, the JSON format result is:
     {
         "callsite": "v4l2_subdev_call(cx->sd_av, vbi, decode_vbi_line, &vbi)",
@@ -75,12 +75,15 @@ def parse_json_response(response):
 
     lines = response.split("\n")
     json_start, json_end = -1, -1
-    for i, line in enumerate(lines):
-        if json_start == -1 and line.startswith("{"):
-            json_start = i
-        if json_end == -1 and line.startswith("}"):
+
+    for i, line in reversed(list(enumerate(lines))):
+        stripped_line = line.strip()
+        if json_end == -1 and stripped_line.endswith("}"):
             json_end = i
-            break
+        if json_start == -1 and stripped_line.startswith("{"):
+            json_start = i
+            if json_end != -1:
+                break
 
     if json_start == -1 or json_end == -1:
         raise Exception("invalid json response")

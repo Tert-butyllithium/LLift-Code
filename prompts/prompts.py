@@ -53,21 +53,18 @@ And I’ll give you what you want, to do the analysis again. You can keep reques
 
 """
 __analyze_json_gen = """
-Based on our discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspious varaiable. 
+Based on our discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
 If each "may_init",  you should indicates its condition (if applicable)):
 For instance:
 
 {
 “ret”: “success”,
 “response”: {
-  "must_init": ["a", "b", "c", "d"],
-  "may_init": ["n", "condition": "ret_val > 4"],
-  "must_no_init": [],
+ "must_init": ["a", "b", "c", "d"],
+ "may_init": ["n", "condition": "ret_val > 4"],
+ "must_no_init": [],
 }
 }
-
-
-
 """
 
 
