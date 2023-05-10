@@ -3,7 +3,7 @@ import os
 import re
 
 class Preprocess:
-    def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx) -> None:
+    def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis) -> None:
         self.id = id
         self.function = function
         self.var_name = var_name
@@ -11,6 +11,7 @@ class Preprocess:
         self.file = file
         self.preprocess = preprocess
         self.raw_ctx = raw_ctx
+        self.analysis = analysis
 
 
     def update_raw_ctx(self):

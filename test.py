@@ -7,11 +7,11 @@ from prompts.call_api import do_preprocess
 
 conn = psycopg2.connect(**DATABASE_CONFIG)
 
-def test_preprocess_read_file():
-    preprocess = Preprocess(-6, "ov5693_detect", "low", 1710,
-                            "drivers/staging/media/atomisp/i2c/ov5693/ov5693.c", "low", None)
-    preprocess.update_raw_ctx()
-    print(preprocess.raw_ctx)
+# def test_preprocess_read_file():
+#     preprocess = Preprocess(-6, "ov5693_detect", "low", 1710,
+#                             "drivers/staging/media/atomisp/i2c/ov5693/ov5693.c", "low", None)
+#     preprocess.update_raw_ctx()
+#     print(preprocess.raw_ctx)
 
 
 def fetch_all(cur):
@@ -36,7 +36,7 @@ def fetch_and_update_ctx():
         # Parse the fetched data
         for row in rows:
             preprocess = Preprocess(
-                row[0], row[1], row[3], row[4], row[5], row[6], row[7])
+                row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
             if preprocess.raw_ctx is not None:
                 continue
             preprocess.update_raw_ctx()
@@ -56,7 +56,7 @@ def fetch_and_update_preprocess_result():
         # Parse the fetched data
         for row in rows:
             preprocess = Preprocess(
-                row[0], row[1], row[3], row[4], row[5], row[6], row[7])
+                row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
             if preprocess.preprocess is not None:
                 continue
             

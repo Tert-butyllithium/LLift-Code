@@ -89,8 +89,7 @@ def insert_into_preprocess(parsed_data):
             "INSERT into preprocess (id, function, type, var_name, line_no, file) VALUES (%s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
             (id, function, type, var_name, line_no, file_p)
         )
-
-    conn.commit()
+        conn.commit()
     cur.close()
 
 
