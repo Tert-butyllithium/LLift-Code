@@ -1,5 +1,6 @@
 import unittest
-from prompts.call_api import parse_json_response
+from helper.parse_json import parse_json
+
 
 class TestParseJsonResponse(unittest.TestCase):
     def test_response_with_code_example(self):
@@ -41,14 +42,38 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
                 }
             ]
         }
-        self.assertEqual(parse_json_response(response), expected_output)
-    
+        self.assertEqual(parse_json(response), expected_output)
+
+    def test_json2(self):
+        response = ("""
+
+{
+   "ret": "need_more_info",
+   "response": [
+      {
+         "type": "function_def",
+         "name": "_regmap_read"
+      }
+   ]
+}
+        """)
+        expected_output = {
+            "ret": "need_more_info",
+            "response": [
+                {
+                    "type": "function_def",
+                    "name": "_regmap_read"
+                }
+            ]
+        }
+        self.assertEqual(parse_json(response), expected_output)
+
     def test_invalid_response(self):
         response = (
             "Based on the analysis above, the JSON format result is:\n"
             "This is not a valid JSON string.\n"
         )
-        self.assertIsNone(parse_json_response(response))
+        self.assertIsNone(parse_json(response))
 
     def test_valid_response(self):
         response = (
@@ -64,7 +89,7 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             "suspicous": ["vbi.type"],
             "afc": None,
         }
-        self.assertEqual(parse_json_response(response), expected_output)
+        self.assertEqual(parse_json(response), expected_output)
 
     def test_interactive(self):
         pass
