@@ -5,12 +5,13 @@ import json
 
 from prompts.prompts import *
 from dao.preprocess import Preprocess
-from dao.logs import PrepLog
+from dao.logs import PrepLog, AnalyzeLog
+from helper.get_func_def import get_func_def_easy
 
 api_key = "../openai.key"
+openai.api_key_path = api_key
 
-
-def _do_request(model, temperature, max_tokens, openai, formatted_messages):
+def _do_request(model, temperature, max_tokens, formatted_messages):
     response = openai.ChatCompletion.create(
         model=model,
         messages=formatted_messages,
@@ -25,7 +26,6 @@ def _do_request(model, temperature, max_tokens, openai, formatted_messages):
 
 
 def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    openai.api_key_path = api_key
 
     # Format conversation messages
     formatted_messages = [
@@ -36,13 +36,12 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     ]
 
     # Call the OpenAI API
-    response = _do_request(model, temperature, max_tokens,
-                           openai, formatted_messages)
+    response = _do_request(model, temperature, max_tokens, formatted_messages)
 
     # Extract the assistant's response
     assistant_message = response["choices"][0]["message"]["content"]
 
-    print(assistant_message)
+    logging.log(assistant_message)
 
     # Extend the conversation via:
     formatted_messages.extend([response["choices"][0]["message"],
@@ -59,7 +58,27 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     return assistant_message2.strip()
 
 def call_gpt_analysis(prep:Preprocess, prompt=AnalyzePrompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    pass
+    prep_res = json.loads(prep.preprocess)
+    # start with the result of preprocess
+    formatted_messages = [
+        {"role": "system", "content": ""},
+        {"role": "user", "content": prompt.system},
+        {"role": "user", "content": prep.preprocess},
+        {"role": "user", "content": get_func_def_easy(prep_res["callsite"].split("(")[0])}
+    ]
+
+    for round in range(1):
+        # Call the OpenAI API
+        response = _do_request(model, temperature, max_tokens, formatted_messages)
+        assistant_message = response["choices"][0]["message"]["content"]
+
+        logging.log(assistant_message)
+        alog = AnalyzeLog(prep.item_id, round, 0, prep.preprocess[:40], assistant_message, model) 
+        alog.commit()
+
+
+
+
 
 
 def parse_json_response(response):
@@ -86,7 +105,8 @@ def parse_json_response(response):
                 break
 
     if json_start == -1 or json_end == -1:
-        raise Exception("invalid json response")
+        logging.info("invalid json response")
+        return None
 
     json_str = "\n".join(lines[json_start:json_end+1])
     logging.info(f"json_str: {json_str}")

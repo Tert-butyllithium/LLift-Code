@@ -48,8 +48,7 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             "Based on the analysis above, the JSON format result is:\n"
             "This is not a valid JSON string.\n"
         )
-        with self.assertRaises(Exception):
-            parse_json_response(response)
+        self.assertIsNone(parse_json_response(response))
 
     def test_valid_response(self):
         response = (
@@ -66,3 +65,6 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             "afc": None,
         }
         self.assertEqual(parse_json_response(response), expected_output)
+
+    def test_interactive(self):
+        pass

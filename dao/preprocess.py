@@ -1,6 +1,7 @@
 from common.config import LINUX_PATH
 import os
 
+
 class Preprocess:
     def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis) -> None:
         self.id = id
@@ -11,7 +12,6 @@ class Preprocess:
         self.preprocess = preprocess
         self.raw_ctx = raw_ctx
         self.analysis = analysis
-
 
     def update_raw_ctx(self):
         file_path = os.path.join(LINUX_PATH, self.file)
