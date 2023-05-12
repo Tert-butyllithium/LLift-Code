@@ -1,19 +1,27 @@
 import requests
+import json
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-import os, sys
+import os
+import sys
 from diskcache import Cache
 from common.config import LINUX_PATH
+
+__location__ = os.path.realpath(
+    os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 base_url = 'https://elixir.bootlin.com/linux/'
 # url = urljoin(base_url, 'A/ident/sscanf')
 base_url2 = 'https://elixir.bootlin.com/linux/'
 cache_dir = "cache"
+_special_cases = json.load(
+    open(__location__ + os.sep + "special_cases.json", 'r'))
 
-def read_function_definition(file_path:str, line_number, linux_path=LINUX_PATH):
+
+def read_function_definition(file_path: str, line_number, linux_path=LINUX_PATH):
     if file_path.startswith("source/"):
         file_path = file_path[7:]
-    
+
     version = linux_path.split(os.sep)[-1]
 
     with Cache(cache_dir+"/cache_defs", size_limit=1 * 1024 ** 3) as cache:
@@ -21,10 +29,10 @@ def read_function_definition(file_path:str, line_number, linux_path=LINUX_PATH):
         cache_key = f"{version}:{file_path}:{line_number}"
 
         # Check if the result is already in the cache
-        # if cache_key in cache:
-        #     func_def = cache[cache_key]
-        #     return func_def
-    
+        if cache_key in cache:
+            func_def = cache[cache_key]
+            return func_def
+
     with open(os.path.join(linux_path, file_path), 'r') as f:
         lines = f.readlines()
 
@@ -60,6 +68,13 @@ def read_function_definition(file_path:str, line_number, linux_path=LINUX_PATH):
         return res_def
 
 
+def read_special_case(file_path, line_no):
+    line_start = line_no[0]
+    line_end = line_no[1]
+    with open(LINUX_PATH + os.sep + file_path, 'r') as f:
+        lines = f.readlines()
+        return ''.join(lines[line_start-1:line_end])
+
 
 def get_func_loc(func_name, version="v4.14"):
     with Cache(cache_dir, size_limit=1 * 1024 ** 3) as cache:
@@ -71,7 +86,6 @@ def get_func_loc(func_name, version="v4.14"):
             func_locs = cache[cache_key]
             if len(func_locs) > 0:
                 return func_locs
-    
 
     url = urljoin(base_url+version+"/", f'A/ident/{func_name}')
     response = requests.get(url, timeout=5)
@@ -87,19 +101,28 @@ def get_func_loc(func_name, version="v4.14"):
                 li_tags = ul_tag.find_all('li')
 
                 for li_tag in li_tags:
-                    file_location = li_tag.find('a').get('href')[len(version)+1:]
+                    file_location = li_tag.find('a').get('href')[
+                        len(version)+1:]
                     func_locs.append(file_location)
+
     else:
-        print("Error: Unable to fetch the content from the function: ", func_name, file=sys.stderr)
+        print("Error: Unable to fetch the content from the function: ",
+              func_name, file=sys.stderr)
     cache[cache_key] = func_locs
     return func_locs
 
 
-def split_func_loc(func_loc:str):
-    res =  func_loc.split("#L")
+def split_func_loc(func_loc: str):
+    res = func_loc.split("#L")
     return res[0], int(res[1])
 
-def get_func_def_easy(func_name:str, version="v4.14", linux_path=LINUX_PATH):
+
+def get_func_def_easy(func_name: str, version="v4.14", linux_path=LINUX_PATH):
+    if func_name in _special_cases:
+        if _special_cases[func_name]["version"] == version:
+            file_path = _special_cases[func_name]["file"]
+            line_number = _special_cases[func_name]["lineno"]
+            return read_special_case(file_path, line_number)
     func_locs = get_func_loc(func_name, version)
     if len(func_locs) == 0:
         return None

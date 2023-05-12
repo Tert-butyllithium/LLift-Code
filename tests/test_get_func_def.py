@@ -135,5 +135,4 @@ class TestPreprocess(unittest.TestCase):
             x = test['callsite']
             print(x.split('(')[0], ":")
             res = get_func_def_easy(x.split('(')[0])
-            if res is None:
-                print("!!!!!!! is NONE")
+            self.assertIsNotNone(res)
