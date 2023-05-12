@@ -78,7 +78,7 @@ def insert_into_preprocess(parsed_data):
         type = raw_data['arg_id']['type']
         var_name = raw_data['arg_id']['name']
         file_p  = raw_data['arg_id']['file']
-        line_no = raw_data['lineno']22
+        line_no = raw_data['lineno']
         id = raw_data['id']
 
         if type == 'arg_no':

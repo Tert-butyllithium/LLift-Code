@@ -13,7 +13,7 @@ api_key = "../openai.key"
 openai.api_key_path = api_key
 
 
-def _do_request(model, temperature, max_tokens, formatted_messages, retry=0):
+def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0):
     try:
         response = openai.ChatCompletion.create(
             model=model,
@@ -26,8 +26,8 @@ def _do_request(model, temperature, max_tokens, formatted_messages, retry=0):
         )
     except Exception as e:
         logging.error(e)
-        if retry < 3:
-            return _do_request(model, temperature, max_tokens, formatted_messages, retry + 1)
+        if _retry < 3:
+            return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1)
         return None
 
     return response
@@ -52,11 +52,10 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     logging.info(assistant_message)
 
     # Extend the conversation via:
-    formatted_messages.extend([response["choices"][0]["message"],
+    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                {"role": "user", "content": prompt.json_gen}
                                ])
-    response = _do_request(model, temperature, max_tokens,
-                           openai, formatted_messages)
+    response = _do_request(model, temperature, max_tokens, formatted_messages)
 
     assistant_message2 = response["choices"][0]["message"]["content"]
 
@@ -70,8 +69,10 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     prep_res = json.loads(prep.preprocess)
     # start with the result of preprocess
 
-    func_def = get_func_def_easy(
-        prep_res["callsite"].split("(")[0])
+    cs = prep_res["callsite"]
+    if type(cs) == list:
+        cs = cs[0]
+    func_def = get_func_def_easy(cs.split("(")[0])
 
     if func_def is None:
         return None
@@ -112,7 +113,7 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
             if not func_def_not_null:
                 break
 
-            formatted_messages.extend([response["choices"][0]["message"],
+            formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                        {"role": "user", "content": provided_defs}
                                        ])
             response = _do_request(
@@ -140,7 +141,7 @@ def do_preprocess(prep: Preprocess):
     if prep.preprocess is not None:
         return
 
-    message = f"your first case is: \nsuspicous varaible: {prep.var_name}\n{prep.raw_ctx}"
+    message = f"your first case is: \nsuspicous varaible: {prep.var_name} that being used in the line of \n{prep.raw_ctx}"
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")
     print(responce)

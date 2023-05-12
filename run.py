@@ -18,10 +18,11 @@ def fetch_all(cur):
     batch_size = 10
     offset = 0
     max_number = 20
+    max_id = 200
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
-            f"SELECT * FROM preprocess where id < 200 and type = 'arg_no' LIMIT {batch_size} OFFSET {offset}")
+            f"SELECT * FROM preprocess where type = 'arg_no' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
         offset += batch_size
 
         rows = cur.fetchall()
@@ -37,9 +38,12 @@ def fetch_and_update_ctx():
         for row in rows:
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
-            if preprocess.raw_ctx is not None:
+            if preprocess.raw_ctx is not None and len(preprocess.raw_ctx) > 0:
                 continue
             preprocess.update_raw_ctx()
+            if preprocess.raw_ctx is None:
+                logging.error(f"Failed to update raw_ctx for function {preprocess.function}")
+                continue
             cur.execute(
                 "UPDATE preprocess SET raw_ctx = %s WHERE id = %s",
                 (preprocess.raw_ctx, preprocess.id)
@@ -56,7 +60,7 @@ def fetch_and_update_preprocess_result():
         for row in rows:
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
-            if preprocess.preprocess is not None:
+            if preprocess.preprocess is not None and preprocess.preprocess != "":
                 continue
             
             logging.info(f"Preprocessing function {preprocess.function} with context  {preprocess.raw_ctx[:20]}...")
@@ -92,7 +96,7 @@ def fetch_and_update_analysis_result():
             if preprocess.preprocess is None:
                 continue
 
-            if preprocess.analysis is not None:
+            if preprocess.analysis is not None and len(preprocess.analysis)>5:
                 continue
             
             logging.info(f"Analyzing function {preprocess.function} with preprocess result {preprocess.raw_ctx[:20]}...")

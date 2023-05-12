@@ -1,3 +1,4 @@
+import logging
 from common.config import LINUX_PATH
 import os
 
@@ -31,4 +32,4 @@ class Preprocess:
         if function_start != -1:
             self.raw_ctx = ''.join(lines[function_start:self.line_no])
         else:
-            print("Function not found in the file.")
+            logging.error(f"Function {self.function} not found in the file.")

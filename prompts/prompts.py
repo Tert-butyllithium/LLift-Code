@@ -5,19 +5,28 @@ class Prompt:
         self.json_gen = json_gen
         self.interacion_heading = interacion_heading
 
-# preprocess: version v2.6 (May 6, 2023)
+# preprocess: version v2.7 (May 11, 2023)
 __preprocess_system_text = """
-Given the context and the suspicious variable, tell me which function that could initialize the variable before its use. Additionally, points out the after function calling check of the function if any.
-The after function check (AFC) is defined as follow:
-A. If a function call is executed within/after an immediate boolean condition judgment, as they may impact the initialization of the variables in question. For example:
+Given the context (all context before used) and the suspicious variable and its usage site (always the last line), tell me which function that could initialize the variable before its use. Additionally, points out the postcondition of the function if any.
+The postcondition is something must happen to reach our usage site (i.e., the last line of context I give to you). The postcondition can be found in the following ways:
+A. checks before using the values
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
-Here, the post-condition ">=4" indicates that when this condition is true, the first four parameters (a, b, c, and d) must be initialized.
-B. "earlier return" may occur due to a failed function call. For example,
+Here, the post-condition ">=4" indicates that when this condition is true, the first four parameters (a, b, c, and d) must be initialized. And the postcondition is “ret_val>=4”.
+There’s an alternative: switch(...) and the usages under some “case case1”. For example,
+switch(ret_val = func(..., &a)){
+	case big_failure:
+		…
+		break
+    case big_success:
+		// use of a
+}
+Since we only care about the use of a. We can say the postcondition here is only “big_success”
+B. Return code failure check. E.g., if(func(..)<0) return
 ret_val = func(...); if (ret_val) { return/break; }
-In these scenarios, you should consider that the function has run successfully (i.e., the AFC is `!ret_val`).
-If you see some if(...) after the function call but don't observe any early returns that affect the control flow, you should say there's no AFC (AFC: None). For example:
+In these scenarios, you should consider what makes the code to run to the last line (i.e., the postcondition is `!ret_val`).
+If you see some if(...) after the function call but don't observe any early returns that affect the control flow, you should say there's no postcondition (postcondition: None). For example:
 if(...){//you don’t find any break or return}
-All context I give you is complete and sufficient, you shouldn’t assume there are some hidden break or returns.
+All context I give you is complete and sufficient, you shouldn’t assume there are some hidden breaks or returns. Think step by step and you should only consider a single path from its (potential) initialization function to the usage site
 """
 
 __preprocess_json_gen = """
@@ -25,18 +34,18 @@ Based on you analyze above, generate a json format result like this:
 {
    "callsite": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicous": ["a", "b", "c", "d"],
-   "afc": "ret_val >=4"
+   "postconidtion": "ret_val >=4"
 }
-if there's no afc, say "afc": null
+if there's no postconidtion, say "postconidtion": null
 """
 
-# analyze: version v2.6 (May 6, 2023)
+# analyze: version v2.7a (May 11, 2023)
 
 __analyze_system_text = """
 I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I will need your assistance in determining if a given function initializes the specified suspicious variables. 
-Additionally, I will give you the AFC(after call check), which says something will happen after the function execution.
+Additionally, I will give you the postcondition, which says something will hold true after the function execution.
 
-For example, with afc “ret_val>=4”, for function call sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n),  we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
+For example, with postcondition “ret_val>=4”, for function call sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n),  we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
 
 If the variable's initialization is unconditional, categorize it as "must_init." Otherwise, “may_init”.
 Thinking step by step. After locating the initialization code, you should look backward for each “if-condition” that could make “early return” so that the program may not reach the line of initialization. You shouldn’t assume some function will always execute successfully; instead,  for example:
@@ -44,12 +53,13 @@ if(some_cond)
     break/return;
 Var = …. // you see an initialization.
 
-you should always assume both true and false branches are possible. The only exception is when the condition is equivalent to the afc we have. otherwise we can only say the var is “may_init” because we don’t know more about whether some_cond happens.
+you should always assume both true and false branches are possible. The only exception is when the condition is equivalent to the postcondition we have. otherwise we can only say the var is “may_init” because we don’t know more about whether some_cond happens.
 
 If you find that you cannot arrive at an answer without more information, such as a function definition, I will ask you to provide these additional details. In this case, you should end your answer with a JSON object in the following format
 
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "func1" } ] }
-And I’ll give you what you want, to do the analysis again. You can keep requests unless you have all your needs.
+And I’ll give you what you want, to
+
 
 """
 __analyze_json_gen = """
