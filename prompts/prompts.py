@@ -5,36 +5,46 @@ class Prompt:
         self.json_gen = json_gen
         self.interacion_heading = interacion_heading
 
-# preprocess: version v2.7 (May 11, 2023)
+# preprocess: version v2.8.2 (May 15, 2023)
 __preprocess_system_text = """
-Given the context (all context before used) and the suspicious variable and its usage site (always the last line), tell me which function that could initialize the variable before its use. Additionally, points out the postcondition of the function if any.
+Given the context and the suspicious variable and its usage site (always the last line), tell me which function that could initialize the variable before its use. Additionally, points out the postcondition of the function if any.
+
 The postcondition is something must happen to reach our usage site (i.e., the last line of context I give to you). The postcondition can be found in the following ways:
+
 A. checks before using the values
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
-Here, the post-condition ">=4" indicates that when this condition is true, the first four parameters (a, b, c, and d) must be initialized. And the postcondition is “ret_val>=4”.
+
+Using "ret_val" to repredent the return value of `sscanf`, the post-condition "ret_val>=4" indicates that when this condition is true, the first four parameters (a, b, c, and d) must be initialized. And the postcondition is “ret_val>=4”.
+
 There’s an alternative: switch(...) and the usages under some “case case1”. For example,
 switch(ret_val = func(..., &a)){
-	case big_failure:
-		…
-		break
-    case big_success:
-		// use of a
+ case big_failure:
+   …
+   break
+   case big_success:
+   // use of a
 }
+
 Since we only care about the use of a. We can say the postcondition here is only “big_success”
+
 B. Return code failure check. E.g., if(func(..)<0) return
+
 ret_val = func(...); if (ret_val) { return/break; }
-In these scenarios, you should consider what makes the code to run to the last line (i.e., the postcondition is `!ret_val`).
+…
+// use of suspicious variable
+In these scenarios, you should consider what makes the code run to the use site (i.e., the postcondition is `!ret_val`).
 If you see some if(...) after the function call but don't observe any early returns that affect the control flow, you should say there's no postcondition (postcondition: None). For example:
 if(...){//you don’t find any break or return}
-All context I give you is complete and sufficient, you shouldn’t assume there are some hidden breaks or returns. Think step by step and you should only consider a single path from its (potential) initialization function to the usage site
+A function may have many disjoint postconditions, you need only consider the condition that could reach the use site. You should use boolean logics to connect multiple conditions if any, for example, “cond1&cond2”.
+All context I give you is complete and sufficient, you shouldn’t assume there are some hidden breaks or returns. Think step by step and you should only consider the single path that could reach the usage site.
 """
 
 __preprocess_json_gen = """
 Based on you analyze above, generate a json format result like this:
 {
    "callsite": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
-   "suspicous": ["a", "b", "c", "d"],
-   "postconidtion": "ret_val >=4"
+   "suspicious": ["a", "b", "c", "d"],
+   "postconidtion": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >=4"
 }
 if there's no postconidtion, say "postconidtion": null
 """

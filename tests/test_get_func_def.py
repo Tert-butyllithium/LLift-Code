@@ -130,6 +130,8 @@ class TestPreprocess(unittest.TestCase):
         print(get_func_def_easy("_regmap_read"))
         print(get_func_def_easy("unlocked_inode_to_wb_begin"))
 
+        print(get_func_def_easy("ext4_mb_simple_scan_group"))
+
         # --------------------more and more tests
         for test in self.tests:
             x = test['callsite']

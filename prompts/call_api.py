@@ -109,6 +109,10 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
                     if func_def is not None:
                         func_def_not_null = True
                         provided_defs += func_def + "\n"
+                    else:
+                        logging.error(f"function {require['name']} not found")
+                        #TODO(need to handle when the function is not found)
+                        pass
 
             if not func_def_not_null:
                 break
@@ -130,28 +134,25 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
                                {"role": "user", "content": prompt.json_gen}
                                ])
     response = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalyzeLog(prep.id, round, dialog_id,
                       prompt.json_gen[:40], assistant_message, model)
     alog.commit()
-    return parse_json(response["choices"][0]["message"]["content"])
+    return parse_json(assistant_message)
 
 
 def do_preprocess(prep: Preprocess):
-    if prep.preprocess is not None:
-        return
-
-    message = f"your first case is: \nsuspicous varaible: {prep.var_name} that being used in the line of \n{prep.raw_ctx}"
+    use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
+    message = f"suspicous varaible: {prep.var_name}\nuse site: {use_site}\n\nCode:\n{prep.raw_ctx}"
+    print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")
     print(responce)
-    prep.preprocess = json.dumps(parse_json(responce))
-    print(prep.preprocess)
+    return json.dumps(parse_json(responce))
 
 
 def do_analysis(prep: Preprocess):
-    if prep.analysis is not None:
-        return
     response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4")
     print(response)
-    prep.analysis = json.dumps(response)
+    return json.dumps(response)

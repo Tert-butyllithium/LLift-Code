@@ -17,7 +17,7 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 def fetch_all(cur):
     batch_size = 10
     offset = 0
-    max_number = 20
+    max_number = 30
     max_id = 200
     while offset < max_number:
         # Fetch data from the PostgreSQL database
@@ -60,14 +60,14 @@ def fetch_and_update_preprocess_result():
         for row in rows:
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
-            if preprocess.preprocess is not None and preprocess.preprocess != "":
+            if preprocess.preprocess is not None and len(preprocess.preprocess) > 5:
                 continue
             
             logging.info(f"Preprocessing function {preprocess.function} with context  {preprocess.raw_ctx[:20]}...")
             
             res = None
             for _ in range(3):
-                do_preprocess(preprocess)
+                preprocess.preprocess = do_preprocess(preprocess)
                 if res is not None and res != preprocess.preprocess:
                     logging.error(f"Preprocessing result for function {preprocess.function} with varaible {preprocess.var_name} changed!!!")
                     logging.error(f"Old result: {res}")
@@ -111,7 +111,7 @@ def fetch_and_update_analysis_result():
                 #     return
                 # res = preprocess.preprocess
                 # break
-            res = do_analysis(preprocess)
+            preprocess.analysis = do_analysis(preprocess)
 
             if res is None:
                 res = "ATTENTION!!!!"
@@ -130,6 +130,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # fetch_and_update_ctx()
-    # fetch_and_update_preprocess_result()
+    fetch_and_update_preprocess_result()
     fetch_and_update_analysis_result()
     conn.close()
