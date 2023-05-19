@@ -19,4 +19,4 @@ def parse_json(json_str):
     if len(json_objs) == 0:
         return None
     
-    return json_objs[0]
+    return json_objs[-1]

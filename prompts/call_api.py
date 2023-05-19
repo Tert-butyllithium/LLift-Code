@@ -1,5 +1,6 @@
 # Note: you need to be using OpenAI Python v0.27.0 for the code below to work
 import logging
+from time import sleep
 import openai
 import json
 
@@ -27,6 +28,8 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0):
     except Exception as e:
         logging.error(e)
         if _retry < 3:
+            sleep(1)
+            logging.info(f"Retrying {_retry + 1} time(s)...")
             return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1)
         return None
 
@@ -144,7 +147,7 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
 
 def do_preprocess(prep: Preprocess):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
-    message = f"suspicous varaible: {prep.var_name}\nuse site: {use_site}\n\nCode:\n{prep.raw_ctx}"
+    message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")

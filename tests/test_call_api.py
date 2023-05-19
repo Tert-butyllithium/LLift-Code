@@ -67,6 +67,37 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             ]
         }
         self.assertEqual(parse_json(response), expected_output)
+    
+    def test_double_json(self):
+        response = ("""
+        In the context of your code, the suspicious variable data is initialized by the function snd_soc_read(). The return value of the function snd_soc_read() is not checked directly, therefore, we cannot express a postcondition in terms of its return value.
+
+However, the usage of data is conditioned by the parameter of the switch statement params_width(params). If we consider the output of the params_width(params) function as a part of the initialization (which is not quite accurate, but for the sake of aligning with your requirements), then we can express the postcondition in terms of its values.
+
+Here is your result in JSON format:
+
+{
+   "initializer": "data = snd_soc_read(codec, AIC32X4_IFACE1)",
+   "suspicious": ["data"],
+   "postcondition": "params_width(params) ∈ {16, 20, 24, 32}"
+}
+This JSON format describes that data is the suspicious variable which is initialized by snd_soc_read() function and it is used if the width of params is in the set {16, 20, 24, 32}.
+
+But strictly speaking, params_width(params) ∈ {16, 20, 24, 32} is more of a condition for the modification of data rather than for its initialization. If you insist on describing the postcondition in terms of the return value or parameters of the initializer function (snd_soc_read() in this case), then there's no direct postcondition, so it should be null.
+
+{
+   "initializer": "data = snd_soc_read(codec, AIC32X4_IFACE1)",
+   "suspicious": ["data"],
+   "postcondition": null
+}
+The above JSON shows that the suspicious variable data is initialized by the snd_soc_read() function, but the subsequent use of data does not depend on the return value of the initializer or its parameters. Instead, it depends on a separate condition - the value of params_width(params).
+        """)
+        expected_output = {
+           "initializer": "data = snd_soc_read(codec, AIC32X4_IFACE1)",
+            "suspicious": ["data"],
+            "postcondition": None
+        }
+        self.assertEqual(parse_json(response), expected_output)
 
     def test_invalid_response(self):
         response = (

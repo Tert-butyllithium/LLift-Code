@@ -40,35 +40,34 @@ All context I give you is complete and sufficient, you shouldn’t assume there 
 """
 
 __preprocess_json_gen = """
-Based on you analyze above, generate a json format result like this:
+the postcondition should be expressed in the return value and/or parameters of the Initializer function.   And then write the result in a json format
+
 {
-   "callsite": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
+   "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicious": ["a", "b", "c", "d"],
-   "postconidtion": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >=4"
+   "postcondition": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >=4"
 }
-if there's no postconidtion, say "postconidtion": null
+the initializer should include the return value, if any
+if there's no postcondition (or can be expressed in terms of ret_val/params), say "postcondition": null
+
 """
 
-# analyze: version v2.7a (May 11, 2023)
+# analyze: version v2.7.2 (May 15, 2023)
 
 __analyze_system_text = """
 I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I will need your assistance in determining if a given function initializes the specified suspicious variables. 
-Additionally, I will give you the postcondition, which says something will hold true after the function execution.
+Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
-For example, with postcondition “ret_val>=4”, for function call sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n),  we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
+For example, with postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4”, we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
 
 If the variable's initialization is unconditional, categorize it as "must_init." Otherwise, “may_init”.
-Thinking step by step. After locating the initialization code, you should look backward for each “if-condition” that could make “early return” so that the program may not reach the line of initialization. You shouldn’t assume some function will always execute successfully; instead,  for example:
-if(some_cond)
-    break/return;
-Var = …. // you see an initialization.
 
-you should always assume both true and false branches are possible. The only exception is when the condition is equivalent to the postcondition we have. otherwise we can only say the var is “may_init” because we don’t know more about whether some_cond happens.
+Thinking step by step. 
 
 If you find that you cannot arrive at an answer without more information, such as a function definition, I will ask you to provide these additional details. In this case, you should end your answer with a JSON object in the following format
 
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "func1" } ] }
-And I’ll give you what you want, to
+And I’ll give you what you want, to let you analyze it again.
 
 
 """

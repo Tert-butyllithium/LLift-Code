@@ -15,10 +15,10 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 
 
 def fetch_all(cur):
-    batch_size = 10
+    batch_size = 100
     offset = 0
-    max_number = 30
-    max_id = 200
+    max_number = 200
+    max_id = 2000
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
@@ -49,8 +49,8 @@ def fetch_and_update_ctx():
                 (preprocess.raw_ctx, preprocess.id)
             )
             logging.info(f"Updated raw_ctx for function {preprocess.function} with context  {preprocess.raw_ctx[:20]}...")
-    
-    conn.commit()
+        conn.commit()
+    cur.close()
 
 def fetch_and_update_preprocess_result():
     cur = conn.cursor()
@@ -61,6 +61,10 @@ def fetch_and_update_preprocess_result():
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
             if preprocess.preprocess is not None and len(preprocess.preprocess) > 5:
+                continue
+
+            if preprocess.raw_ctx is None:
+                logging.error(f"{preprocess.function}: raw context is None")
                 continue
             
             logging.info(f"Preprocessing function {preprocess.function} with context  {preprocess.raw_ctx[:20]}...")
@@ -129,7 +133,7 @@ if __name__ == "__main__":
     # test_preprocess_read_file()
     logging.basicConfig(level=logging.INFO)
 
-    # fetch_and_update_ctx()
+    fetch_and_update_ctx()
     fetch_and_update_preprocess_result()
     fetch_and_update_analysis_result()
     conn.close()
