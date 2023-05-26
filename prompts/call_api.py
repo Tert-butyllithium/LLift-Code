@@ -72,18 +72,30 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     prep_res = json.loads(prep.preprocess)
     # start with the result of preprocess
 
+    # some ugly code to make compatible
+    if "initializer" in prep_res:
+        prep_res["callsite"] = prep_res["initializer"]
+        prep_res.pop("initializer")
+
     cs = prep_res["callsite"]
     if type(cs) == list:
         cs = cs[0]
+    
+    # remove the return value 
+    if '=' in cs:
+        cs = cs[len(cs.split("=")[0])+1:].strip()
     func_def = get_func_def_easy(cs.split("(")[0])
 
     if func_def is None:
+        logging.error(f"Cannot find function definition for {cs}")
         return None
+
+    prep_res_str = str(prep_res)
 
     formatted_messages = [
         {"role": "system", "content": ""},
         {"role": "user", "content": prompt.system},
-        {"role": "user", "content": prep.preprocess},
+        {"role": "user", "content": prep_res_str},
         {"role": "user", "content": func_def}
     ]
 
@@ -95,7 +107,7 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
 
     logging.info(assistant_message)
     alog = AnalyzeLog(prep.id, round, dialog_id,
-                      prep.preprocess[:40], assistant_message, model)
+                      prep_res_str[:50], assistant_message, model)
     alog.commit()
 
     # interactive process
@@ -145,12 +157,36 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     return parse_json(assistant_message)
 
 
+def warp_postcondition(postcondition:str, initializer):
+    """
+    warp the postcondition if:
+    - the initializer retutrn a value and save it to a variable
+    - the postcondition use the variable
+    """
+    if postcondition is None:
+        return None
+    
+    if '=' not in initializer:
+        return postcondition
+    if initializer[-1] == ';':
+        initializer = initializer[:-1]
+    
+    ret_val_name = initializer.split("=")[0].strip()
+    if " " in ret_val_name: # contains type
+        ret_val_name = ret_val_name.split(" ")[-1].strip()
+    initializer_call = initializer.split("=")[1].strip()
+    return postcondition.replace(ret_val_name, initializer_call)
+
+    
+    
+
 def do_preprocess(prep: Preprocess):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")
+    responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
     print(responce)
     return json.dumps(parse_json(responce))
 
