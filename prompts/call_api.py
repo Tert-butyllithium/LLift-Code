@@ -186,9 +186,11 @@ def do_preprocess(prep: Preprocess):
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")
-    responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
     print(responce)
-    return json.dumps(parse_json(responce))
+    responce = parse_json(responce)
+    responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
+
+    return json.dumps(responce)
 
 
 def do_analysis(prep: Preprocess):
