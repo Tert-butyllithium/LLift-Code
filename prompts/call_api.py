@@ -12,6 +12,7 @@ from helper.parse_json import parse_json
 
 api_key = "../openai.key"
 openai.api_key_path = api_key
+trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0):
@@ -84,10 +85,11 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     # remove the return value 
     if '=' in cs:
         cs = cs[len(cs.split("=")[0])+1:].strip()
-    func_def = get_func_def_easy(cs.split("(")[0])
+    func_name = cs.split("(")[0]
+    func_def = get_func_def_easy(func_name)
 
     if func_def is None:
-        logging.error(f"Cannot find function definition for {cs}")
+        logging.error(f"Cannot find function definition in {cs}")
         return None
 
     prep_res_str = str(prep_res)
@@ -95,9 +97,10 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     formatted_messages = [
         {"role": "system", "content": ""},
         {"role": "user", "content": prompt.system},
-        {"role": "user", "content": prep_res_str},
-        {"role": "user", "content": func_def}
+        {"role": "user", "content": prep_res_str},    
     ]
+    if func_name not in trivial_funcs:
+        formatted_messages.append({"role": "user", "content": func_def})
 
     # for round in range(1):
     # Call the OpenAI API
@@ -156,7 +159,7 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     alog.commit()
     return parse_json(assistant_message)
 
-
+#TODO bug: if the return value reuses the parameter name
 def warp_postcondition(postcondition:str, initializer):
     """
     warp the postcondition if:
@@ -172,9 +175,15 @@ def warp_postcondition(postcondition:str, initializer):
         initializer = initializer[:-1]
     
     ret_val_name = initializer.split("=")[0].strip()
+
     if " " in ret_val_name: # contains type
         ret_val_name = ret_val_name.split(" ")[-1].strip()
     initializer_call = initializer.split("=")[1].strip()
+
+    # Workaround: if return value reuses a parameter
+    if ret_val_name in initializer_call:
+        return postcondition
+
     return postcondition.replace(ret_val_name, initializer_call)
 
     
@@ -194,6 +203,6 @@ def do_preprocess(prep: Preprocess):
 
 
 def do_analysis(prep: Preprocess):
-    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4")
+    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4", max_tokens=4000, temperature=1.0)
     print(response)
     return json.dumps(response)
