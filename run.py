@@ -17,12 +17,12 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 def fetch_all(cur):
     batch_size = 100
     offset = 0
-    max_number = 200
+    max_number = 500
     max_id = 2000
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
-            f"SELECT * FROM preprocess where type = 'arg_no' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
+            f"SELECT * FROM preprocess where var_name not like '%$%' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
         offset += batch_size
 
         rows = cur.fetchall()

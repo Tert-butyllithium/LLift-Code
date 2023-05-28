@@ -71,14 +71,14 @@ if __name__ == "__main__":
             print(f"Var name: {preprocess.var_name}")
             print(f"Infered name: {infered_name}")
 
-            # cur.execute(
-            #     "UPDATE preprocess SET var_name = %s WHERE id = %s",
-            #     (infered_name, preprocess.id)
-            # )
+            cur.execute(
+                "UPDATE preprocess SET var_name = %s WHERE id = %s",
+                (infered_name, preprocess.id)
+            )
         conn.commit()
     cur.close()
     print("infer failed:")
     for f in failed:
-        print(f)
+        print(f[0], "; ", f[1], "; ")
     print(f"Success count: {suc_count}")
     print(f"Failed count: {len(failed)}")

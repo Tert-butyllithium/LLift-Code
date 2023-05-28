@@ -81,6 +81,9 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     cs = prep_res["callsite"]
     if type(cs) == list:
         cs = cs[0]
+    if cs == None:
+        logging.error(f"no call site info!")
+        return None
     
     # remove the return value 
     if '=' in cs:

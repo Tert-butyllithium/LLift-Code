@@ -44,6 +44,7 @@ def find_variables(code):
 
 def find_closest_match(varname, code):
     varname = "$".join(varname.split('$')[1:])
+    varname= varname.replace("obj", ".")
 
     # Find all the variable names in the code
     variables = find_variables(code)
@@ -55,8 +56,8 @@ def find_closest_match(varname, code):
     min_distance = min(distances)
 
     # If the minimum distance equals the length of the given variable name, raise an exception
-    if min_distance == len(varname):
-        raise Exception("The given variable name does not closely match any variable in the code")
+    # if min_distance == len(varname):
+    #     raise Exception("The given variable name does not closely match any variable in the code")
     
 
     # Find the indices of the minimum distance
@@ -77,11 +78,6 @@ def find_closest_match(varname, code):
     return res
 
 if __name__ == "__main__":
-
-    """
-    Use site: dev_info(&bdev->client->dev, "BCM2048 Version 0x%x\n",
-Var name: bcm2048_checkrev_$version$obj
-Infered name: bdev->client->dev
-    """
-    code = 'dev_info(&bdev->client->dev, "BCM2048 Version 0x%x\n"'
-    print(find_closest_match("bcm2048_checkrev_$version$obj", code))
+    code = "*file_sz = info->file_size;"
+    varname = "efi_file_size_$info$obj"
+    print(find_closest_match(varname, code))
