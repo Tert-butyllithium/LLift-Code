@@ -16,6 +16,9 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 
 def fetch_all(cur):
     batch_size = 100
+    # offset = 300
+    # max_number = 1000
+    # max_id = 12000
     offset = 0
     max_number = 500
     max_id = 2000
@@ -60,7 +63,7 @@ def fetch_and_update_preprocess_result():
         for row in rows:
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
-            if preprocess.preprocess is not None and len(preprocess.preprocess) > 5:
+            if preprocess.preprocess is not None and len(preprocess.preprocess) > 1:
                 continue
 
             if preprocess.raw_ctx is None:
@@ -97,10 +100,10 @@ def fetch_and_update_analysis_result():
         for row in rows:
             preprocess = Preprocess(
                 row[0], row[1], row[3], row[4], row[5], row[6], row[7], row[8])
-            if preprocess.preprocess is None:
+            if preprocess.preprocess is None or len(preprocess.preprocess) < 15:
                 continue
 
-            if preprocess.analysis is not None and len(preprocess.analysis)>5:
+            if preprocess.analysis is not None and len(preprocess.analysis) > 5:
                 continue
             
             logging.info(f"Analyzing function {preprocess.function} with preprocess result {preprocess.raw_ctx[:20]}...")

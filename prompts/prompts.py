@@ -52,7 +52,7 @@ if there's no postcondition (or can be expressed in terms of ret_val/params), sa
 
 """
 
-# analyze: version v2.7.2 (May 15, 2023)
+# analyze: version v2.7.3 (May 27, 2023)
 
 __analyze_system_text = """
 I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I will need your assistance in determining if a given function initializes the specified suspicious variables. 
@@ -62,7 +62,16 @@ For example, with postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, 
 
 If the variable's initialization is unconditional, categorize it as "must_init." Otherwise, “may_init”.
 
-Thinking step by step. 
+Thinking step by step. Postcondtion could imply more information beyond exact matches the condition,
+for example, with postcondtion "ret_val != -1" and you see the code as follow:
+```
+if(some_condition){
+   return -1;
+}
+a = ... // init var a
+```
+In this case, although you don't know what the condition here it is or match the postcondition, but if this happens, you know the return value is -1 and conflicts with the postcondition. 
+Hence, this early return won't happen and the "a" is "must_init".
 
 If you find that you cannot arrive at an answer without more information, such as a function definition, I will ask you to provide these additional details. In this case, you should end your answer with a JSON object in the following format
 
@@ -73,7 +82,7 @@ And I’ll give you what you want, to let you analyze it again.
 """
 __analyze_json_gen = """
 Based on our discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
-If each "may_init",  you should indicates its condition (if applicable)):
+For each "may_init",  you should indicates its condition (if applicable)):
 For instance:
 
 {

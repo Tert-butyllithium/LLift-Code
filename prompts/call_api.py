@@ -15,7 +15,7 @@ openai.api_key_path = api_key
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 
 
-def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0):
+def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
     try:
         response = openai.ChatCompletion.create(
             model=model,
@@ -28,13 +28,25 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0):
         )
     except Exception as e:
         logging.error(e)
-        if _retry < 3:
+        emsg = str(e)
+        # if "error_code=None" in emsg: # ???
+        #     return emsg
+        if last_emsg is not None and emsg[:60] == last_emsg[:60]:
+            logging.info("Same error")
+            return '{"ret": "failed", "response": "'+ emsg[:200] + '"}'
+
+
+        if _retry < 3 and ("context_length_exceeded" not in emsg):
+            # if last_emsg is not None and str(e)[:60] == str(last_emsg)[:60]:
+            #     logging.info("Same error")
+            #     return '{"ret": "failed", "response": "'+ str(e)[:200] + '"}'
             sleep(1)
             logging.info(f"Retrying {_retry + 1} time(s)...")
-            return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1)
-        return None
+            return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1, emsg)
+        else:
+            return '{"ret": "failed", "response": "'+ emsg[:200] + '"}'
 
-    return response
+    return response["choices"][0]["message"]["content"]
 
 
 def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
@@ -48,10 +60,10 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     ]
 
     # Call the OpenAI API
-    response = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
 
     # Extract the assistant's response
-    assistant_message = response["choices"][0]["message"]["content"]
+    # assistant_message = response["choices"][0]["message"]["content"]
 
     logging.info(assistant_message)
 
@@ -59,9 +71,9 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                {"role": "user", "content": prompt.json_gen}
                                ])
-    response = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message2 = _do_request(model, temperature, max_tokens, formatted_messages)
 
-    assistant_message2 = response["choices"][0]["message"]["content"]
+    # assistant_message2 = response["choices"][0]["message"]["content"]
 
     plog = PrepLog(item_id, assistant_message, assistant_message2, model)
     plog.commit()
@@ -83,7 +95,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
         cs = cs[0]
     if cs == None:
         logging.error(f"no call site info!")
-        return None
+        # return '{"ret": "failed", "response": "no call site info!"}'
+        return {"ret": "failed", "response": "no call site info!"}
     
     # remove the return value 
     if '=' in cs:
@@ -93,7 +106,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
 
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
-        return None
+        # return '{"ret": "failed", "response": ' + f"Cannot find function definition in {cs}" + '}'
+        return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
 
     prep_res_str = str(prep_res)
 
@@ -107,19 +121,26 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
 
     # for round in range(1):
     # Call the OpenAI API
-    response = _do_request(model, temperature, max_tokens, formatted_messages)
-    assistant_message = response["choices"][0]["message"]["content"]
+    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
+    # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id = 0
+
+    if  assistant_message.startswith('{"ret": "failed", "response": "'):
+        # logging.error(assistant_message)
+        return json.loads(assistant_message)
 
     logging.info(assistant_message)
     alog = AnalyzeLog(prep.id, round, dialog_id,
                       prep_res_str[:50], assistant_message, model)
     alog.commit()
+    formatted_messages.extend([{"role": "assistant", "content": assistant_message}])
+
+    
 
     # interactive process
     while True:
         json_res = parse_json(assistant_message)
-        if json_res is None:  # finish the analysis
+        if json_res is None or "ret" not in json_res:  # finish the analysis
             break
         if json_res["ret"] == "need_more_info":
             provided_defs = "Here it is, you can continue asking for more functions.\n"
@@ -138,24 +159,25 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
             if not func_def_not_null:
                 break
 
-            formatted_messages.extend([{"role": "assistant", "content": assistant_message},
+            formatted_messages.extend([
                                        {"role": "user", "content": provided_defs}
                                        ])
-            response = _do_request(
+            assistant_message = _do_request(
                 model, temperature, max_tokens, formatted_messages)
-            assistant_message = response["choices"][0]["message"]["content"]
+            # assistant_message = response["choices"][0]["message"]["content"]
             dialog_id += 1
             alog = AnalyzeLog(prep.id, round, dialog_id,
                               provided_defs[:40], assistant_message, model)
             alog.commit()
+            formatted_messages.append({"role": "assistant", "content": assistant_message})
 
     # let it generate a json output, and save the result
     # Extend the conversation via:
-    formatted_messages.extend([response["choices"][0]["message"],
+    formatted_messages.extend([
                                {"role": "user", "content": prompt.json_gen}
                                ])
-    response = _do_request(model, temperature, max_tokens, formatted_messages)
-    assistant_message = response["choices"][0]["message"]["content"]
+    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
+    # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalyzeLog(prep.id, round, dialog_id,
                       prompt.json_gen[:40], assistant_message, model)
@@ -192,20 +214,28 @@ def warp_postcondition(postcondition:str, initializer):
     
     
 
-def do_preprocess(prep: Preprocess):
+def do_preprocess(prep: Preprocess, retry=0):
+    if retry > 3:
+        logging.error("ChatGPT not output in our format with tries > 3")
+        return "failed > 3"
+
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model="gpt-4")
     print(responce)
+    # try:
     responce = parse_json(responce)
     responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
 
     return json.dumps(responce)
+    # except:
+    #     logging.error("ChatGPT not output in our format, try again", retry)
+    #     return do_preprocess(prep, retry+1)
 
 
 def do_analysis(prep: Preprocess):
-    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4", max_tokens=4000, temperature=1.0)
+    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4", max_tokens=3000, temperature=0.7)
     print(response)
     return json.dumps(response)
