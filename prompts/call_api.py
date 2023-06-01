@@ -205,8 +205,10 @@ def warp_postcondition(postcondition:str, initializer):
         ret_val_name = ret_val_name.split(" ")[-1].strip()
     initializer_call = initializer.split("=")[1].strip()
 
+
+    init_call_func_name = initializer_call.split("(")[0]
     # Workaround: if return value reuses a parameter
-    if ret_val_name in initializer_call:
+    if ret_val_name in initializer_call[len(init_call_func_name):]:
         return postcondition
 
     return postcondition.replace(ret_val_name, initializer_call)

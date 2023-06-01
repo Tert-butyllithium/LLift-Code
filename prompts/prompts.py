@@ -52,10 +52,12 @@ if there's no postcondition (or can be expressed in terms of ret_val/params), sa
 
 """
 
-# analyze: version v2.7.3 (May 27, 2023)
+# analyze: version v2.7.4 (May 31, 2023)
+# upd: define "intialization" more clearly: we don't 
 
 __analyze_system_text = """
 I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I will need your assistance in determining if a given function initializes the specified suspicious variables. 
+Here, I don't care if a variable is meaningfully assigned, we only care that no potentially garbage values are passed in that could become exploitable.
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
 For example, with postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4”, we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.

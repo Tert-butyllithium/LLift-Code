@@ -35,3 +35,7 @@ class TestPreprocess(unittest.TestCase):
         postcondition = "offset != -1 && offset != 0"
         self.assertEqual(warp_postcondition(postcondition, initializer), "hidinput_find_field(hid, type, code, &field) != -1 && hidinput_find_field(hid, type, code, &field) != 0")
 
+        initializer = "iint = integrity_iint_find(inode)"
+        postcondition = "iint != NULL"
+        self.assertEqual(warp_postcondition(postcondition, initializer), "integrity_iint_find(inode) != NULL")
+
