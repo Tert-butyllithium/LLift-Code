@@ -5,7 +5,7 @@ class Prompt:
         self.json_gen = json_gen
         self.interacion_heading = interacion_heading
 
-# preprocess: version v2.8.2 (May 15, 2023)
+# preprocess: version v2.8.3 (Jun 2, 2023)
 __preprocess_system_text = """
 Given the context and the suspicious variable and its usage site (always the last line), tell me which function that could initialize the variable before its use. Additionally, points out the postcondition of the function if any.
 
@@ -45,10 +45,10 @@ the postcondition should be expressed in the return value and/or parameters of t
 {
    "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicious": ["a", "b", "c", "d"],
-   "postcondition": "sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >=4"
+   "postcondition": "res >=4"
 }
 the initializer should include the return value, if any
-if there's no postcondition (or can be expressed in terms of ret_val/params), say "postcondition": null
+if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
 
 """
 

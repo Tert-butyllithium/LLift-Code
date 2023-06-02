@@ -144,20 +144,21 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
             break
         if json_res["ret"] == "need_more_info":
             provided_defs = "Here it is, you can continue asking for more functions.\n"
-            func_def_not_null = False
+            # is_func_def = False
             for require in json_res["response"]:
                 if require["type"] == "function_def":
+                    # is_func_def = True
                     func_def = get_func_def_easy(require["name"])
                     if func_def is not None:
-                        func_def_not_null = True
                         provided_defs += func_def + "\n"
                     else:
                         logging.error(f"function {require['name']} not found")
-                        #TODO(need to handle when the function is not found)
-                        pass
+                        provided_defs += f"Sorry, function {require['name']} not found\n"
+                else:
+                    provided_defs += f"Sorry, no information of {require} I can provide\n"
 
-            if not func_def_not_null:
-                break
+            # if not is_func_def:
+            #     break
 
             formatted_messages.extend([
                                        {"role": "user", "content": provided_defs}

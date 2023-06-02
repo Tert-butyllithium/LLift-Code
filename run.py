@@ -20,8 +20,8 @@ def fetch_all(cur):
     # max_number = 1000
     # max_id = 12000
     offset = 0
-    max_number = 2000
-    max_id = 2000
+    max_number = 10000
+    max_id = 10000
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
