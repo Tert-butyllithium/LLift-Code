@@ -4,6 +4,7 @@ import logging
 import psycopg2
 
 from prompts.call_api import do_preprocess, do_analysis
+import argparse
 
 conn = psycopg2.connect(**DATABASE_CONFIG)
 
@@ -14,29 +15,27 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 #     print(preprocess.raw_ctx)
 
 
-def fetch_all(cur):
+def fetch_all(cur, max_id, offset, max_number):
     batch_size = 100
-    # offset = 300
-    # max_number = 1000
-    # max_id = 12000
-    offset = 0
-    max_number = 10000
-    max_id = 10000
+    cur.execute(
+            f"SELECT count(*) FROM preprocess where type != 'unkown' and var_name not like '%$%' and id < {max_id}")
+    real_max_num = cur.fetchone()[0]
+    max_number = min(max_number, real_max_num)
+    logging.info(f"Total number: {real_max_num}, analyzing {max_number} functions...")
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
-            f"SELECT * FROM preprocess where var_name not like '%$%' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
+            f"SELECT * FROM preprocess where type != 'unkown' and var_name not like '%$%' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
         offset += batch_size
-
         rows = cur.fetchall()
         yield rows
     
 
 
-def fetch_and_update_ctx():
+def fetch_and_update_ctx(max_id=10000, offset = 0, max_number = 1000):
     cur = conn.cursor()
     logging.info("Connected to database...")
-    for rows in fetch_all(cur):
+    for rows in fetch_all(cur, max_id, offset, max_number):
         # Parse the fetched data
         for row in rows:
             preprocess = Preprocess(
@@ -55,10 +54,10 @@ def fetch_and_update_ctx():
         conn.commit()
     cur.close()
 
-def fetch_and_update_preprocess_result():
+def fetch_and_update_preprocess_result(max_id=10000, offset = 0, max_number = 1000):
     cur = conn.cursor()
     logging.info("Connected to database...")
-    for rows in fetch_all(cur):
+    for rows in fetch_all(cur, max_id, offset, max_number):
         # Parse the fetched data
         for row in rows:
             preprocess = Preprocess(
@@ -92,10 +91,10 @@ def fetch_and_update_preprocess_result():
             conn.commit()
 
 
-def fetch_and_update_analysis_result():
+def fetch_and_update_analysis_result(max_id=10000, offset = 0, max_number = 1000):
     cur = conn.cursor()
     logging.info("Connected to database...")
-    for rows in fetch_all(cur):
+    for rows in fetch_all(cur, max_id, offset, max_number):
         # Parse the fetched data
         for row in rows:
             preprocess = Preprocess(
@@ -134,9 +133,17 @@ def fetch_and_update_analysis_result():
 
 if __name__ == "__main__":
     # test_preprocess_read_file()
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-s %(filename)s:%(lineno)s - %(funcName)20s() :: %(message)s')
 
-    fetch_and_update_ctx()
-    fetch_and_update_preprocess_result()
-    fetch_and_update_analysis_result()
+    parser = argparse.ArgumentParser(description='using arguments to control the # of warnings in database to be processed')
+    parser.add_argument('--max_id', type=int, default=10000, help='max id of the warning to be processed; id is the original identify from static analysis of UBITect')
+    parser.add_argument('--offset', type=int, default=0, help='offset of the warning to be processed')
+    parser.add_argument('--max_number', type=int, default=100, help='max number of the warning to be processed; default is ifinite')
+    args = parser.parse_args()
+    
+
+
+    fetch_and_update_ctx(args.max_id, args.offset, args.max_number)
+    fetch_and_update_preprocess_result(args.max_id, args.offset, args.max_number)
+    fetch_and_update_analysis_result(args.max_id, args.offset, args.max_number)
     conn.close()

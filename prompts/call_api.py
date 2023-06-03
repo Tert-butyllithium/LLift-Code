@@ -143,29 +143,32 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
         if json_res is None or "ret" not in json_res:  # finish the analysis
             break
         if json_res["ret"] == "need_more_info":
-            provided_defs = "Here it is, you can continue asking for more functions.\n"
-            # is_func_def = False
+            is_func_def = False
+            provided_defs = ""
             for require in json_res["response"]:
                 if require["type"] == "function_def":
-                    # is_func_def = True
+                    is_func_def = True
                     func_def = get_func_def_easy(require["name"])
                     if func_def is not None:
                         provided_defs += func_def + "\n"
                     else:
                         logging.error(f"function {require['name']} not found")
-                        provided_defs += f"Sorry, function {require['name']} not found\n"
+                        provided_defs += f"Sorry, I don't find function {require['name']}, continue analysis without it\n"
                 else:
-                    provided_defs += f"Sorry, no information of {require} I can provide\n"
+                    provided_defs += f"Sorry, no information of {require} I can provide, continue analysis without it\n"
 
-            # if not is_func_def:
-            #     break
+            if is_func_def:
+                provided_defs =  "Here it is, you can continue asking for other functions.\n" + provided_defs
+            else:
+                provided_defs = "" + provided_defs
+                
 
             formatted_messages.extend([
                                        {"role": "user", "content": provided_defs}
                                        ])
             assistant_message = _do_request(
                 model, temperature, max_tokens, formatted_messages)
-            # assistant_message = response["choices"][0]["message"]["content"]
+            logging.info(assistant_message)
             dialog_id += 1
             alog = AnalyzeLog(prep.id, round, dialog_id,
                               provided_defs[:40], assistant_message, model)
@@ -226,7 +229,7 @@ def do_preprocess(prep: Preprocess, retry=0):
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model="gpt-4")
+        message, prep.id, PreprocessPrompt, model="gpt-4", max_tokens=2048)
     print(responce)
     # try:
     responce = parse_json(responce)

@@ -14,5 +14,13 @@
             205
         ],
         "version": "v4.14"
+    },
+    "ec_read": {
+        "file": "drivers/acpi/ec.c",
+        "lineno": [
+            882,
+            897
+        ],
+        "version": "v4.14"
     }
 }
