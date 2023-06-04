@@ -22,7 +22,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
             messages=formatted_messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            top_p=0.9,
+            top_p=0.92,
             frequency_penalty=0,
             presence_penalty=0,
         )
@@ -82,6 +82,7 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
 
 def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
+    _provide_func_heading = "Here it is, you can continue asking for other functions.\n"
     prep_res = json.loads(prep.preprocess)
     # start with the result of preprocess
 
@@ -117,7 +118,10 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
         {"role": "user", "content": prep_res_str},    
     ]
     if func_name not in trivial_funcs:
-        formatted_messages.append({"role": "user", "content": func_def})
+        formatted_messages.append({"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
+        formatted_messages.append({"role": "user", "content": _provide_func_heading +  func_def})
+    
+    logging.info(formatted_messages)
 
     # for round in range(1):
     # Call the OpenAI API
@@ -158,7 +162,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
                     provided_defs += f"Sorry, no information of {require} I can provide, continue analysis without it\n"
 
             if is_func_def:
-                provided_defs =  "Here it is, you can continue asking for other functions.\n" + provided_defs
+
+                provided_defs =  _provide_func_heading + provided_defs
             else:
                 provided_defs = "" + provided_defs
                 
@@ -174,6 +179,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
                               provided_defs[:40], assistant_message, model)
             alog.commit()
             formatted_messages.append({"role": "assistant", "content": assistant_message})
+        else:
+            break
 
     # let it generate a json output, and save the result
     # Extend the conversation via:
@@ -229,7 +236,7 @@ def do_preprocess(prep: Preprocess, retry=0):
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model="gpt-4", max_tokens=2048)
+        message, prep.id, PreprocessPrompt, model="gpt-4-0314", max_tokens=2048)
     print(responce)
     # try:
     responce = parse_json(responce)
@@ -242,6 +249,6 @@ def do_preprocess(prep: Preprocess, retry=0):
 
 
 def do_analysis(prep: Preprocess):
-    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4", max_tokens=3000, temperature=0.7)
+    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4-0314", max_tokens=2048, temperature=0.7)
     print(response)
     return json.dumps(response)
