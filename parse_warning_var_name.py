@@ -14,11 +14,12 @@ def fetch_all(cur):
     batch_size = 100
     offset = 0
     max_number = 20000
-    max_id = 20000
+    max_id = 1000000
+    min_id = 100000
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(
-            f"SELECT * FROM preprocess where type = 'var_name' and id < {max_id} LIMIT {batch_size} OFFSET {offset}")
+            f"SELECT * FROM preprocess where type = 'var_name' and id < {max_id} and id > {min_id} LIMIT {batch_size} OFFSET {offset}")
         offset += batch_size
 
         rows = cur.fetchall()

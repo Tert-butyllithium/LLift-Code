@@ -13,7 +13,7 @@ from helper.parse_json import parse_json
 api_key = "../openai.key"
 openai.api_key_path = api_key
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
-
+exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
     try:
@@ -69,16 +69,26 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
     # Extend the conversation via:
     formatted_messages.extend([{"role": "assistant", "content": assistant_message},
-                               {"role": "user", "content": prompt.json_gen}
+                               {"role": "user", "content": prompt.continue_text}
                                ])
     assistant_message2 = _do_request(model, temperature, max_tokens, formatted_messages)
 
-    # assistant_message2 = response["choices"][0]["message"]["content"]
 
     plog = PrepLog(item_id, assistant_message, assistant_message2, model)
     plog.commit()
 
-    return assistant_message2.strip()
+    logging.info(assistant_message2)
+
+    # Extend the conversation via:
+    formatted_messages.extend([{"role": "assistant", "content": assistant_message2},
+                               {"role": "user", "content": prompt.json_gen}
+                               ])
+    assistant_message3 = _do_request(model, temperature, max_tokens, formatted_messages)
+
+    plog = PrepLog(item_id, assistant_message, assistant_message3, model)
+    plog.commit()
+
+    return assistant_message3.strip()
 
 
 def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
@@ -87,11 +97,11 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     # start with the result of preprocess
 
     # some ugly code to make compatible
-    if "initializer" in prep_res:
-        prep_res["callsite"] = prep_res["initializer"]
-        prep_res.pop("initializer")
+    # if "initializer" in prep_res:
+    #     prep_res["callsite"] = prep_res["initializer"]
+    #     prep_res.pop("initializer")
 
-    cs = prep_res["callsite"]
+    cs = prep_res["initializer"]
     if type(cs) == list:
         cs = cs[0]
     if cs == None:
@@ -139,7 +149,6 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     alog.commit()
     formatted_messages.extend([{"role": "assistant", "content": assistant_message}])
 
-    
 
     # interactive process
     while True:
@@ -236,16 +245,39 @@ def do_preprocess(prep: Preprocess, retry=0):
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model="gpt-4-0314", max_tokens=2048)
+        message, prep.id, PreprocessPrompt, model="gpt-4-0314", max_tokens=1024)
     print(responce)
-    # try:
-    responce = parse_json(responce)
-    responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
 
+    responce = parse_json(responce)
+    if 'postcondition' in responce:
+        responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
+    else:
+        try_found = False
+        if type(responce) == list:
+            response_iterator = responce
+        else:
+            response_iterator = next(responce.values()) # {"intializers":[{...}, {...}]}
+        if type(response_iterator) == list and 'postcondition' in response_iterator[-1]:
+            response_iterator.reverse()
+            for item in response_iterator:
+                func_call = item['initializer']
+                exclude = False
+                for exclus in exclusive_funcs:
+                    if exclus in func_call:
+                        exclude = True
+                        break
+                if exclude:
+                    continue
+                responce = item
+                responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
+                try_found = True
+    
+        if not try_found:
+            logging.error("ChatGPT not output in our format: ", responce)
+            return "{}"
+            
     return json.dumps(responce)
-    # except:
-    #     logging.error("ChatGPT not output in our format, try again", retry)
-    #     return do_preprocess(prep, retry+1)
+
 
 
 def do_analysis(prep: Preprocess):

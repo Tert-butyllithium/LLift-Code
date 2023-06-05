@@ -80,26 +80,31 @@ def insert_into_preprocess(parsed_data):
         file_p  = raw_data['arg_id']['file']
         line_no = raw_data['lineno']
         id = raw_data['id']
+        selected = raw_data['selected']
 
         if type == 'arg_no':
             if var_name is None or '(' in var_name:
                 continue
 
         cur.execute(
-            "INSERT into preprocess (id, function, type, var_name, line_no, file) VALUES (%s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
-            (id, function, type, var_name, line_no, file_p)
+            "INSERT into preprocess (id, function, type, var_name, line_no, file, selected) VALUES (%s, %s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
+            (id, function, type, var_name, line_no, file_p, selected)
         )
         conn.commit()
     cur.close()
 
 
-def run():
-    batch_size = 10
+def run(table='timout', selected=False, id_offset = 0):
+    batch_size = 100
     offset = 0
-    max_number = 20
+    max_number = 200
     while offset < max_number:
         # Fetch data from the PostgreSQL database
-        cur.execute(f"SELECT DISTINCT ON (function) id, function, lineno, arg_id, argno FROM timout LIMIT {batch_size} OFFSET {offset}")
+        if selected:
+            query = f"SELECT DISTINCT ON (function) id, function, lineno, arg_id, argno FROM {table} WHERE selected = True LIMIT {batch_size} OFFSET {offset}"
+        else:
+            query = f"SELECT DISTINCT ON (function) id, function, lineno, arg_id, argno FROM {table} LIMIT {batch_size} OFFSET {offset}"
+        cur.execute(query)
         offset += batch_size
 
 
@@ -108,16 +113,17 @@ def run():
         parsed_data = []
         for row in rows:
             raw_data = {
-                "id": row[0], 
+                "id": row[0] + id_offset, 
                 "function_name": row[1],  # Replace indices with appropriate column indices
                 "lineno": row[2],
                 "arg_id": parse_arg_id(row[3], row[4], row[2]),
-                "argno": row[4]
+                "argno": row[4],
+                "selected": selected
             }
             parsed_data.append({"raw_data": raw_data})
 
         # Print parsed data as a JSON string
-        # print(json.dumps(parsed_data, indent=2))
+        print(json.dumps(parsed_data, indent=2))
         insert_into_preprocess(parsed_data)
         # Close the cursor and the connection
 

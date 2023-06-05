@@ -132,3 +132,6 @@ dmypy.json
 
 # Cached files
 cache/**
+
+#macOS
+.DS_Store
