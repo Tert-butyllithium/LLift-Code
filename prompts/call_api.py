@@ -15,6 +15,7 @@ openai.api_key_path = api_key
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
+
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
     try:
         response = openai.ChatCompletion.create(
@@ -33,8 +34,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
         #     return emsg
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
-            return '{"ret": "failed", "response": "'+ emsg[:200] + '"}'
-
+            return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
 
         if _retry < 3 and ("context_length_exceeded" not in emsg):
             # if last_emsg is not None and str(e)[:60] == str(last_emsg)[:60]:
@@ -44,7 +44,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
             logging.info(f"Retrying {_retry + 1} time(s)...")
             return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1, emsg)
         else:
-            return '{"ret": "failed", "response": "'+ emsg[:200] + '"}'
+            return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
 
     return response["choices"][0]["message"]["content"]
 
@@ -60,7 +60,8 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     ]
 
     # Call the OpenAI API
-    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message = _do_request(
+        model, temperature, max_tokens, formatted_messages)
 
     # Extract the assistant's response
     # assistant_message = response["choices"][0]["message"]["content"]
@@ -71,8 +72,8 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                {"role": "user", "content": prompt.continue_text}
                                ])
-    assistant_message2 = _do_request(model, temperature, max_tokens, formatted_messages)
-
+    assistant_message2 = _do_request(
+        model, temperature, max_tokens, formatted_messages)
 
     plog = PrepLog(item_id, assistant_message, assistant_message2, model)
     plog.commit()
@@ -83,7 +84,8 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     formatted_messages.extend([{"role": "assistant", "content": assistant_message2},
                                {"role": "user", "content": prompt.json_gen}
                                ])
-    assistant_message3 = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message3 = _do_request(
+        model, temperature, max_tokens, formatted_messages)
 
     plog = PrepLog(item_id, assistant_message, assistant_message3, model)
     plog.commit()
@@ -108,8 +110,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
         logging.error(f"no call site info!")
         # return '{"ret": "failed", "response": "no call site info!"}'
         return {"ret": "failed", "response": "no call site info!"}
-    
-    # remove the return value 
+
+    # remove the return value
     if '=' in cs:
         cs = cs[len(cs.split("=")[0])+1:].strip()
     func_name = cs.split("(")[0]
@@ -125,21 +127,24 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     formatted_messages = [
         {"role": "system", "content": ""},
         {"role": "user", "content": prompt.system},
-        {"role": "user", "content": prep_res_str},    
+        {"role": "user", "content": prep_res_str},
     ]
     if func_name not in trivial_funcs:
-        formatted_messages.append({"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
-        formatted_messages.append({"role": "user", "content": _provide_func_heading +  func_def})
-    
-    logging.info(formatted_messages)
+        formatted_messages.append(
+            {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
+        formatted_messages.append(
+            {"role": "user", "content": _provide_func_heading + func_def})
+
+    logging.info(formatted_messages[-1])
 
     # for round in range(1):
     # Call the OpenAI API
-    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message = _do_request(
+        model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id = 0
 
-    if  assistant_message.startswith('{"ret": "failed", "response": "'):
+    if assistant_message.startswith('{"ret": "failed", "response": "'):
         # logging.error(assistant_message)
         return json.loads(assistant_message)
 
@@ -147,8 +152,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     alog = AnalyzeLog(prep.id, round, dialog_id,
                       prep_res_str[:50], assistant_message, model)
     alog.commit()
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message}])
-
+    formatted_messages.extend(
+        [{"role": "assistant", "content": assistant_message}])
 
     # interactive process
     while True:
@@ -172,10 +177,9 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
 
             if is_func_def:
 
-                provided_defs =  _provide_func_heading + provided_defs
+                provided_defs = _provide_func_heading + provided_defs
             else:
                 provided_defs = "" + provided_defs
-                
 
             formatted_messages.extend([
                                        {"role": "user", "content": provided_defs}
@@ -187,7 +191,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
             alog = AnalyzeLog(prep.id, round, dialog_id,
                               provided_defs[:40], assistant_message, model)
             alog.commit()
-            formatted_messages.append({"role": "assistant", "content": assistant_message})
+            formatted_messages.append(
+                {"role": "assistant", "content": assistant_message})
         else:
             break
 
@@ -196,7 +201,8 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     formatted_messages.extend([
                                {"role": "user", "content": prompt.json_gen}
                                ])
-    assistant_message = _do_request(model, temperature, max_tokens, formatted_messages)
+    assistant_message = _do_request(
+        model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalyzeLog(prep.id, round, dialog_id,
@@ -204,8 +210,10 @@ def call_gpt_analysis(prep: Preprocess, prompt=AnalyzePrompt, round=0, model="gp
     alog.commit()
     return parse_json(assistant_message)
 
-#TODO bug: if the return value reuses the parameter name
-def warp_postcondition(postcondition:str, initializer):
+# TODO bug: if the return value reuses the parameter name
+
+
+def warp_postcondition(postcondition: str, initializer):
     """
     warp the postcondition if:
     - the initializer retutrn a value and save it to a variable
@@ -213,18 +221,17 @@ def warp_postcondition(postcondition:str, initializer):
     """
     if postcondition is None:
         return None
-    
+
     if '=' not in initializer:
         return postcondition
     if initializer[-1] == ';':
         initializer = initializer[:-1]
-    
+
     ret_val_name = initializer.split("=")[0].strip()
 
-    if " " in ret_val_name: # contains type
+    if " " in ret_val_name:  # contains type
         ret_val_name = ret_val_name.split(" ")[-1].strip()
     initializer_call = initializer.split("=")[1].strip()
-
 
     init_call_func_name = initializer_call.split("(")[0]
     # Workaround: if return value reuses a parameter
@@ -232,6 +239,34 @@ def warp_postcondition(postcondition:str, initializer):
         return postcondition
 
     return postcondition.replace(ret_val_name, initializer_call)
+
+
+# wrap the suspicious variable if it is the return value to avoid var reuse
+def warp_ret_value(suspicious_vars: list, initializer:str):
+    """
+    warp the ret_value if:
+    - return value is the suspicious variable
+    - @param suspicious_vars: list of suspicious variables
+    - @param initializer: the initializer
+    - @return: the new suspicious variables and the new initializer
+    """
+    if suspicious_vars is None or initializer is None:
+        return suspicious_vars, initializer
+
+    if '=' not in initializer:
+        return suspicious_vars, initializer
+    
+    if initializer[-1] == ';':
+        initializer = initializer[:-1]
+    
+    ret_val_name = initializer.split("=")[0].strip()
+
+    if ret_val_name in suspicious_vars:
+        initializer = initializer.replace(ret_val_name, "func_ret_val", 1)
+        suspicious_vars.remove(ret_val_name)
+        suspicious_vars.append("func_ret_val")
+    
+    return suspicious_vars, initializer
 
     
     
@@ -275,7 +310,8 @@ def do_preprocess(prep: Preprocess, retry=0):
         if not try_found:
             logging.error("ChatGPT not output in our format: ", responce)
             return "{}"
-            
+        
+    responce['suspicious'], responce['initializer'] = warp_ret_value(responce['suspicious'], responce['initializer'])
     return json.dumps(responce)
 
 

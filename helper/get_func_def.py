@@ -33,7 +33,7 @@ def read_function_definition(file_path: str, line_number, linux_path=LINUX_PATH)
             func_def = cache[cache_key]
             return func_def
 
-    with open(os.path.join(linux_path, file_path), 'r') as f:
+    with open(os.path.join(linux_path, file_path), 'r', errors='ignore') as f:
         lines = f.readlines()
 
         # Find the starting line of the comments by searching for '*/' before the function definition
@@ -71,7 +71,7 @@ def read_function_definition(file_path: str, line_number, linux_path=LINUX_PATH)
 def read_special_case(file_path, line_no):
     line_start = line_no[0]
     line_end = line_no[1]
-    with open(LINUX_PATH + os.sep + file_path, 'r') as f:
+    with open(LINUX_PATH + os.sep + file_path, 'r', errors='ignore') as f:
         lines = f.readlines()
         return ''.join(lines[line_start-1:line_end])
 

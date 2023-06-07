@@ -155,6 +155,7 @@ if __name__ == "__main__":
                         help='offset of the warning to be processed')
     parser.add_argument('--max_number', type=int, default=INF,
                         help='max number of the warning to be processed; default is ifinite')
+    parser.add_argument('--model', type=str, default='gpt-4-0314', help='model to be used, default is gpt-4-0314')
     args = parser.parse_args()
 
     fetch_and_update_ctx(args.max_id, args.min_id,

@@ -18,7 +18,7 @@ class Preprocess:
         file_path = os.path.join(LINUX_PATH, self.file)
         function_start = -1
 
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', errors='ignore') as f:
             lines = f.readlines()
 
         for i in range(self.line_no - 1, -1, -1):

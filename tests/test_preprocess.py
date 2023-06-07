@@ -2,7 +2,7 @@ import unittest
 from dao.preprocess import Preprocess
 import psycopg2
 from common.config import DATABASE_CONFIG
-from prompts.call_api import warp_postcondition
+from prompts.call_api import warp_postcondition, warp_ret_value
 import json
 
 class TestPreprocess(unittest.TestCase):
@@ -39,3 +39,14 @@ class TestPreprocess(unittest.TestCase):
         postcondition = "iint != NULL"
         self.assertEqual(warp_postcondition(postcondition, initializer), "integrity_iint_find(inode) != NULL")
 
+    def test_warp_ret_val(self):
+        initializer =  "r = nci_hci_connect_gate(ndev, gates->dest_host, gates->gate, gates->pipe);"
+        suspicious = ["r"]
+        new_initializer = "func_ret_val = nci_hci_connect_gate(ndev, gates->dest_host, gates->gate, gates->pipe)"
+        new_suspicious = ["func_ret_val"]
+        self.assertEqual(warp_ret_value(suspicious, initializer), (new_suspicious, new_initializer))
+
+        case2 = {"initializer": "sta = sta_info_get_bss(sdata, addr)", "suspicious": ["sta"], "postcondition": "null"}
+        new_initializer = "func_ret_val = sta_info_get_bss(sdata, addr)"
+        new_suspicious = ["func_ret_val"]
+        self.assertEqual(warp_ret_value(case2["suspicious"], case2["initializer"]), (new_suspicious, new_initializer))
