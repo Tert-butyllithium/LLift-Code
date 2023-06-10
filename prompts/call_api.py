@@ -30,16 +30,11 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     except Exception as e:
         logging.error(e)
         emsg = str(e)
-        # if "error_code=None" in emsg: # ???
-        #     return emsg
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
             return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
 
         if _retry < 3 and ("context_length_exceeded" not in emsg):
-            # if last_emsg is not None and str(e)[:60] == str(last_emsg)[:60]:
-            #     logging.info("Same error")
-            #     return '{"ret": "failed", "response": "'+ str(e)[:200] + '"}'
             sleep(1)
             logging.info(f"Retrying {_retry + 1} time(s)...")
             return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1, emsg)
@@ -271,16 +266,12 @@ def warp_ret_value(suspicious_vars: list, initializer:str):
     
     
 
-def do_preprocess(prep: Preprocess, retry=0):
-    if retry > 3:
-        logging.error("ChatGPT not output in our format with tries > 3")
-        return "failed > 3"
-
+def do_preprocess(prep: Preprocess,  model):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model="gpt-4-0314", max_tokens=1024)
+        message, prep.id, PreprocessPrompt, model, max_tokens=1024)
     print(responce)
 
     responce = parse_json(responce)
@@ -316,7 +307,7 @@ def do_preprocess(prep: Preprocess, retry=0):
 
 
 
-def do_analysis(prep: Preprocess):
-    response = call_gpt_analysis(prep, AnalyzePrompt, model="gpt-4-0314", max_tokens=2048, temperature=0.7)
+def do_analysis(prep: Preprocess, model):
+    response = call_gpt_analysis(prep, AnalyzePrompt, model, max_tokens=2048, temperature=0.7)
     print(response)
     return json.dumps(response)

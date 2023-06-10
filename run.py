@@ -57,7 +57,7 @@ def fetch_and_update_ctx(max_id, min_id, offset, max_number):
     cur.close()
 
 
-def fetch_and_update_preprocess_result(max_id, min_id, offset, max_number):
+def fetch_and_update_preprocess_result(max_id, min_id, offset, max_number, model):
     cur = conn.cursor()
     logging.info("Connected to database...")
     for rows in fetch_all(cur, max_id, min_id, offset, max_number):
@@ -77,7 +77,7 @@ def fetch_and_update_preprocess_result(max_id, min_id, offset, max_number):
 
             res = None
             for _ in range(3):
-                preprocess.preprocess = do_preprocess(preprocess)
+                preprocess.preprocess = do_preprocess(preprocess, model)
                 if res is not None and res != preprocess.preprocess:
                     logging.error(
                         f"Preprocessing result for function {preprocess.function} with varaible {preprocess.var_name} changed!!!")
@@ -97,7 +97,7 @@ def fetch_and_update_preprocess_result(max_id, min_id, offset, max_number):
             conn.commit()
 
 
-def fetch_and_update_analysis_result(max_id, min_id, offset, max_number):
+def fetch_and_update_analysis_result(max_id, min_id, offset, max_number, model):
     cur = conn.cursor()
     logging.info("Connected to database...")
     for rows in fetch_all(cur, max_id, min_id, offset, max_number):
@@ -124,7 +124,7 @@ def fetch_and_update_analysis_result(max_id, min_id, offset, max_number):
             #     return
             # res = preprocess.preprocess
             # break
-            preprocess.analysis = do_analysis(preprocess)
+            preprocess.analysis = do_analysis(preprocess, model)
 
             if res is None:
                 res = "ATTENTION!!!!"
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     fetch_and_update_ctx(args.max_id, args.min_id,
                          args.offset, args.max_number)
     fetch_and_update_preprocess_result(
-        args.max_id, args.min_id, args.offset, args.max_number)
+        args.max_id, args.min_id, args.offset, args.max_number, args.model)
     fetch_and_update_analysis_result(
-        args.max_id, args.min_id, args.offset, args.max_number)
+        args.max_id, args.min_id, args.offset, args.max_number, args.model)
     conn.close()
