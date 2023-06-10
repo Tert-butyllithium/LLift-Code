@@ -11,9 +11,9 @@ class Prompt:
 __preprocess_system_text = """
 Given the context, the suspicious variable, and its usage site, tell me which function(s) could initialize the variable before its use.
 Additionally, you are required to point out the 
-the weakest postcondition of each initialization function by a simple reachability analysis.
+the postcondition of each initialization function by a simple reachability analysis.
 
-The weakest postcondition is constraints that must be satisfied to make the path from the initialization func to reach the usage site. The postcondition can be found in the following ways:
+The postcondition is constraints that must be satisfied to make the path from the initialization func to reach the usage site. The postcondition can be found in the following ways:
 
 A. after function check, before its usage. E.g.,
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
@@ -31,7 +31,7 @@ switch(ret_val = func(..., &a)){
 }
 ```
 
-Since we only care about the use of a. We can say the weakest postcondition here is only “big_success”
+Since we only care about the use of a. We can say the postcondition here is only “big_success”
 
 B. after function check, return code failures. E.g., if(func(..)<0) return
 
@@ -75,7 +75,8 @@ Conclude your analysis in a json format; for example:
 
 For multiple initializations, respond as:
 [
- {"init..."...}, {"init..."...}
+ {"initializer":..., "postcondition":... }, 
+ {"initializer":..., "postcondition":... }, 
 ]
 
 """

@@ -5,3 +5,8 @@ DATABASE_CONFIG = {
     "user": "ubiuser1",
     "password": "ubitect",
 }
+
+DB_CONFIG = 'postgresql://ubiuser1:ubitect@192.168.1.134:5432/ubidb1'
+
+EVAL_SAMPLING_TABLE = 'case_sampling'
+EVAL_RES_TABLE = 'sampling_res'

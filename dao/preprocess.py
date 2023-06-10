@@ -4,7 +4,7 @@ import os
 
 
 class Preprocess:
-    def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis) -> None:
+    def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis, group = -1, last_round = -1) -> None:
         self.id = id
         self.function = function
         self.var_name = var_name
@@ -13,6 +13,8 @@ class Preprocess:
         self.preprocess = preprocess
         self.raw_ctx = raw_ctx
         self.analysis = analysis
+        self.group = group
+        self.last_round = last_round
 
     def update_raw_ctx(self):
         file_path = os.path.join(LINUX_PATH, self.file)
