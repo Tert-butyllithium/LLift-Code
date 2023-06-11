@@ -12,7 +12,6 @@ class CaseSampling(Base):
     __tablename__ = 'case_sampling'
     
     id = Column(Integer, primary_key=True)
-    analyzed_files = Column(Text)
     lineno = Column(Integer, nullable=False)
     function = Column(String(255), nullable=False)
     file = Column(String)
@@ -30,7 +29,7 @@ class CaseSampling(Base):
         with open(file_path, 'r', errors='ignore') as f:
             lines = f.readlines()
 
-        for i in range(self.line_no - 1, -1, -1):
+        for i in range(self.lineno - 1, -1, -1):
             line = lines[i]
             if function_start == -1 and line == "{\n":
                 function_start = i + 1
@@ -39,6 +38,6 @@ class CaseSampling(Base):
                 break
 
         if function_start != -1:
-            self.raw_ctx = ''.join(lines[function_start:self.line_no])
+            self.raw_ctx = ''.join(lines[function_start:self.lineno])
         else:
             logging.error(f"Function {self.function} not found in the file.")

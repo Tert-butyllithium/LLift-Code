@@ -73,7 +73,6 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     plog = PreprocessLog()
     plog.commit(item_id, assistant_message, assistant_message2, model)
 
-
     logging.info(assistant_message2)
 
     # Extend the conversation via:
@@ -93,7 +92,15 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     _provide_func_heading = "Here it is, you can continue asking for other functions.\n"
     prep_res = json.loads(prep.initializer)
 
-    cs = prep_res["initializer"]
+    # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
+    if "initializer" in prep_res:
+        cs = prep_res["initializer"]
+    elif "initializers" in prep_res:
+        cs = prep_res["initializers"]
+    else:
+        logging.error(f"no call site info!")
+        return {"ret": "failed", "response": "no call site info!"}
+    
     if type(cs) == list:
         cs = cs[0]
     if cs == None:
@@ -142,7 +149,8 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
 
     logging.info(assistant_message)
     alog = AnalysisLog()
-    alog.commit(prep.id, round, dialog_id, prep_res_str[:50], assistant_message, model)
+    alog.commit(prep.id, round, dialog_id,
+                prep_res_str[:50], assistant_message, model)
     formatted_messages.extend(
         [{"role": "assistant", "content": assistant_message}])
 
@@ -173,14 +181,15 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                 provided_defs = "" + provided_defs
 
             formatted_messages.extend([
-                                       {"role": "user", "content": provided_defs}
-                                       ])
+                {"role": "user", "content": provided_defs}
+            ])
             assistant_message = _do_request(
                 model, temperature, max_tokens, formatted_messages)
             logging.info(assistant_message)
             dialog_id += 1
             alog = AnalysisLog()
-            alog.commit(prep.id, round, dialog_id, provided_defs[:40], assistant_message, model)
+            alog.commit(prep.id, round, dialog_id,
+                        provided_defs[:40], assistant_message, model)
 
             formatted_messages.append(
                 {"role": "assistant", "content": assistant_message})
@@ -190,15 +199,15 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     # let it generate a json output, and save the result
     # Extend the conversation via:
     formatted_messages.extend([
-                               {"role": "user", "content": prompt.json_gen}
-                               ])
+        {"role": "user", "content": prompt.json_gen}
+    ])
     assistant_message = _do_request(
         model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalysisLog()
     alog.commit(prep.id, round, dialog_id,
-                      prompt.json_gen[:40], assistant_message, model)
+                prompt.json_gen[:40], assistant_message, model)
     return parse_json(assistant_message)
 
 # TODO bug: if the return value reuses the parameter name
@@ -233,7 +242,7 @@ def warp_postcondition(postcondition: str, initializer):
 
 
 # wrap the suspicious variable if it is the return value to avoid var reuse
-def warp_ret_value(suspicious_vars: list, initializer:str):
+def warp_ret_value(suspicious_vars: list, initializer: str):
     """
     warp the ret_value if:
     - return value is the suspicious variable
@@ -246,21 +255,19 @@ def warp_ret_value(suspicious_vars: list, initializer:str):
 
     if '=' not in initializer:
         return suspicious_vars, initializer
-    
+
     if initializer[-1] == ';':
         initializer = initializer[:-1]
-    
+
     ret_val_name = initializer.split("=")[0].strip()
 
     if ret_val_name in suspicious_vars:
         initializer = initializer.replace(ret_val_name, "func_ret_val", 1)
         suspicious_vars.remove(ret_val_name)
         suspicious_vars.append("func_ret_val")
-    
+
     return suspicious_vars, initializer
 
-    
-    
 
 def do_preprocess(prep,  model):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
@@ -272,14 +279,16 @@ def do_preprocess(prep,  model):
 
     responce = parse_json(responce)
     if 'postcondition' in responce:
-        responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
+        responce['postcondition'] = warp_postcondition(
+            responce['postcondition'], responce['initializer'])
     else:
         try_found = False
         try:
             if type(responce) == list:
                 response_iterator = responce
             else:
-                response_iterator = next(responce.values()) # {"intializers":[{...}, {...}]}
+                # {"intializers":[{...}, {...}]}
+                response_iterator = next(responce.values())
             if type(response_iterator) == list and 'postcondition' in response_iterator[-1]:
                 response_iterator.reverse()
                 for item in response_iterator:
@@ -292,7 +301,8 @@ def do_preprocess(prep,  model):
                     if exclude:
                         continue
                     responce = item
-                    responce['postcondition'] = warp_postcondition(responce['postcondition'], responce['initializer'])
+                    responce['postcondition'] = warp_postcondition(
+                        responce['postcondition'], responce['initializer'])
                     try_found = True
             assert type(responce['postcondition']) == str
         except Exception:
@@ -301,13 +311,14 @@ def do_preprocess(prep,  model):
         if not try_found:
             logging.error("ChatGPT not output in our format: ", responce)
             return "{}"
-        
-    responce['suspicious'], responce['initializer'] = warp_ret_value(responce['suspicious'], responce['initializer'])
+
+    responce['suspicious'], responce['initializer'] = warp_ret_value(
+        responce['suspicious'], responce['initializer'])
     return json.dumps(responce)
 
 
-
 def do_analysis(prep, round,  model):
-    response = call_gpt_analysis(prep, AnalyzePrompt, round,  model, max_tokens=2048, temperature=0.7)
+    response = call_gpt_analysis(
+        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=0.7)
     print(response)
     return json.dumps(response)

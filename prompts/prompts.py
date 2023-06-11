@@ -59,6 +59,7 @@ All context I give you is complete and sufficient; you shouldn’t assume there 
 __preprocess_continue_text = """
 looking back at the analysis, consider the following:
 - the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
+- the postcondition should not contains the suspicious variable, if it does, remove it
 - the initializer should include the return value, if it was refered in the postcondition or suspicious variable
 - A postcondtion must dirrectly affect the reachablity of the usage site; so for failure check, if there's no explicit return/break/goto... that makes the following use impossible, it should be ignored.
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
@@ -75,8 +76,8 @@ Conclude your analysis in a json format; for example:
 
 For multiple initializations, respond as:
 [
- {"initializer":..., "postcondition":... }, 
- {"initializer":..., "postcondition":... }, 
+ {"initializer":..., "suspicious": ..., "postcondition":... }, 
+ {"initializer":...,  "suspicious": ..., "postcondition":... }, 
 ]
 
 """

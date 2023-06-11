@@ -18,9 +18,8 @@ Session = sessionmaker(bind=engine)
 # This function now uses SQLAlchemy to interact with the database
 
 
-def fetch_all(group, max_id, min_id, offset, max_number):
+def fetch_all(session, group, max_id, min_id, offset, max_number):
     batch_size = 100
-    session = Session()
 
     # count the total number of relevant rows
     count_query = session.query(CaseSampling).filter(
@@ -45,14 +44,11 @@ def fetch_all(group, max_id, min_id, offset, max_number):
         offset += batch_size
         yield rows
 
-    # Remember to close the session when you're done
-    session.close()
-
 
 def fetch_and_update_ctx(group, max_id, min_id, offset, max_number):
     with Session() as session:
         logging.info("Connected to database...")
-        for rows in fetch_all(group, max_id, min_id, offset, max_number):
+        for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
             # Parse the fetched data
             for case in rows:
                 if case.raw_ctx is not None and len(case.raw_ctx) > 0:
@@ -68,104 +64,52 @@ def fetch_and_update_ctx(group, max_id, min_id, offset, max_number):
             session.commit()
 
 
-"""
-def fetch_and_update_preprocess_result(group, max_id, min_id, offset, max_number, model, max_round=3):
+
+def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
     with Session() as session:
         logging.info("Connected to database...")
-        for rows in fetch_all(group, max_id, min_id, offset, max_number):
-            # Parse the fetched data
-            for case in rows:
-                if case.raw_ctx is None:
-                    logging.error(f"{case.function}: raw context is None")
-                    continue
-
-                if case.last_round >= max_round:
-                    continue
-
-                case.last_round += 1
-                session.add(case)
-
-                logging.info(
-                    f"Preprocessing function {case.function} with context  {case.raw_ctx[:20]}...")
-
-                new_result = do_preprocess(case, model)
-
-                # Fetch the preprocessing result for this case from the database
-                preprocess_result = session.query(SamplingRes).filter(
-                    SamplingRes.id == case.id).first()
-
-                # If there's an existing result and it's non-empty, check for stability
-                if preprocess_result and preprocess_result.result and len(preprocess_result.result) > 1:
-                    if preprocess_result.result != new_result:
-                        preprocess_result.stable = False
-                        logging.error(
-                            f"Preprocessing result for function {case.function} with variable {case.var_name} changed!!!")
-                        logging.error(
-                            f"Old result: {preprocess_result.result}")
-                        logging.error(f"New result: {new_result}")
-                else:  # If there's no existing result, create a new one
-                    preprocess_result = SamplingRes(
-                        id=case.id, model=model, result=new_result, group=group, initializer=None, stable=True)
-                    session.add(preprocess_result)
-
-                preprocess_result.result = new_result
-                logging.info(
-                    f"Updated preprocess for function {case.function}, variable {case.var_name} with result {new_result[:100]}...")
-
-                session.commit()
-"""
-
-
-def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model):
-    with Session() as session:
-        logging.info("Connected to database...")
-        for rows in fetch_all(group, max_id, min_id, offset, max_number):
+        for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
             for case in rows:
                 # Skip case if raw context is missing or not enough rounds left
-                if case.raw_ctx is None or len(case.raw_ctx) < 15 or case.last_round >= 3:
+                if case.raw_ctx is None or len(case.raw_ctx) < 15 or case.last_round >= max_round:
                     continue
 
                 logging.info(
                     f"Preprocessing function {case.function} with context {case.raw_ctx[:20]}...")
 
                 # Preprocessing
-                initializer = do_preprocess(case, model)
+                
                 sampling_res = session.query(SamplingRes).filter(
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
-
-                if sampling_res and sampling_res.initializer != initializer:
-                    sampling_res.stable = False
-                    logging.error(
-                        f"Preprocessing result for function {case.function} with variable {case.var_name} changed!!!")
-                    logging.error(f"Old result: {sampling_res.initializer}")
-                    logging.error(f"New result: {initializer}")
-
-                elif not sampling_res:
+                
+                # we allow small inconsistency between preprocessing results
+                if sampling_res:
+                    initializer = sampling_res.initializer
+                else:
+                    initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=group, stable=True)
                     session.add(sampling_res)
 
-                sampling_res.initializer = initializer
                 logging.info(
-                    f"Updated preprocess for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
+                    f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                case.last_round += 1
-                session.commit()
-
-                # Skip analysis if preprocessing result is too short
-                if len(initializer) < 15:
-                    continue
-
-                logging.info(
-                    f"Analyzing function {case.function} with preprocess initializer {initializer[:20]}...")
-
-                # Analysis
                 result = do_analysis(sampling_res, case.last_round,  model)
+
+                if sampling_res.result and sampling_res.result != result:
+                    sampling_res.stable = False
+                    logging.error(
+                        f"Analysis result for function {case.function} with variable {case.var_name} changed!!!")
+                    logging.error(f"Old result: {sampling_res.result}")
+                    logging.error(f"New result: {result}")
+                # Analysis
+
                 sampling_res.result = result  # Updating the result with analysis output
 
                 logging.info(
                     f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
-
+                logging.info("updating last_round")
+                case.last_round = case.last_round + 1
                 session.commit()
 
 
@@ -203,4 +147,4 @@ if __name__ == "__main__":
     #     args.group, args.max_id, args.min_id, args.offset, args.max_number, args.model)
     # conn.close()
     preprocess_and_analyze(args.group, args.max_id, args.min_id,
-                           args.offset, args.max_number, args.model)
+                           args.offset, args.max_number, args.model, args.max_round)
