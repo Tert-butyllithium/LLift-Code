@@ -3,7 +3,7 @@ import argparse
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
-
+import json
 
 from dao.case_sampling import CaseSampling
 from dao.sampling_res import SamplingRes
@@ -64,6 +64,19 @@ def fetch_and_update_ctx(group, max_id, min_id, offset, max_number):
             session.commit()
 
 
+def result_stable_check(res, new_res):
+    if res == new_res:
+        return True
+    
+    try:
+        res = json.loads(res)
+        new_res = json.loads(new_res)
+        if res['response']['must_init'] == new_res['response']['must_init']:
+            return True
+    except Exception:
+        return False
+    return False
+
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
     with Session() as session:
@@ -96,7 +109,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
 
                 result = do_analysis(sampling_res, case.last_round,  model)
 
-                if sampling_res.result and sampling_res.result != result:
+                if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
                     logging.error(
                         f"Analysis result for function {case.function} with variable {case.var_name} changed!!!")
