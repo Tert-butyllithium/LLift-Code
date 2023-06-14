@@ -11,6 +11,7 @@ def parse_json(json_str):
 
     json_objs = []
     for json_str in json_res:
+        json_str = json_str.replace('”','"')
         try:
             json_objs.append(json.loads(json_str))
         except json.JSONDecodeError:

@@ -82,11 +82,11 @@ For multiple initializations, respond as:
 
 """
 
-# analyze: version v2.7.4 (May 31, 2023)
-# upd: define "intialization" more clearly: we don't 
+# analyze: version v3.0 (Jun 14, 2023)
+# upd: using `system` instead of `user`, adapting for gpt-4-0613
 
 __analyze_system_text = """
-I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
+You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
 For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4”, we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
@@ -100,13 +100,13 @@ a = ... // init var a
 ```
 In this case,  
 - if we don't have any postcondition, directly mark "a" as may_init since it could be unreachable
-- if we have postcondition, we have two things to determine whether this branch can be taken:
+- if we have a postcondition, we have two things to determine whether this branch can be taken:
     1. if the postcondition conflicts with the "some_conditon", makes the early return must not take
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
-Once you find all early returns are unreachable, you can mark the variable as "must_init".
+Once all early returns are unreachable, you can mark the variable as "must_init".
 
-Thinking step by step.
-Anytime you feel uncerten due to unknown functions, you should stop analysis, and ask me to provide its definition(s) in this way:
+You should think step by step.
+Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
 And I’ll give you what you want to let you analyze it again.
 """

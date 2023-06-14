@@ -128,8 +128,8 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     prep_res_str = str(prep_res)
 
     formatted_messages = [
-        {"role": "system", "content": ""},
-        {"role": "user", "content": prompt.system},
+        {"role": "system", "content": prompt.system},
+        # {"role": "user", "content": prompt.system},
         {"role": "user", "content": prep_res_str},
     ]
     if func_name not in trivial_funcs:
@@ -330,6 +330,6 @@ def do_preprocess(prep,  model):
 
 def do_analysis(prep, round,  model):
     response = call_gpt_analysis(
-        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=0.7)
+        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=1.0)
     print(response)
     return json.dumps(response)
