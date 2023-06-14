@@ -67,6 +67,19 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             ]
         }
         self.assertEqual(parse_json(response), expected_output)
+
+    def test_json3(self):
+        response = ("""
+        {
+"ret": "success",
+"response": {
+ "must_init": [],
+ "may_init": [{"name": "vbi.type", "condition": "!(sd) is false and !((sd)->ops->o && (sd)->ops->o->f) is false"}],
+ "must_no_init": [],
+}
+}
+""")
+        print(parse_json(response))
     
     def test_double_json(self):
         response = ("""

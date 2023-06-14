@@ -77,7 +77,7 @@ Conclude your analysis in a json format; for example:
 For multiple initializations, respond as:
 [
  {"initializer":..., "suspicious": ..., "postcondition":... }, 
- {"initializer":...,  "suspicious": ..., "postcondition":... }, 
+ {"initializer":...,  "suspicious": ..., "postcondition":... }
 ]
 
 """
@@ -121,7 +121,7 @@ For instance:
 “response”: {
  "must_init": ["a", "b", "c", "d"],
  "may_init": ["n", "condition": "ret_val > 4"],
- "must_no_init": [],
+ "must_no_init": []
 }
 }
 """

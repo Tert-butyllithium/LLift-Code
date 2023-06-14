@@ -81,14 +81,15 @@ def insert_into_preprocess(parsed_data):
         line_no = raw_data['lineno']
         id = raw_data['id']
         selected = raw_data['selected']
+        priority = raw_data['priority'] if 'priority' in raw_data else None
 
         if type == 'arg_no':
             if var_name is None or '(' in var_name:
                 continue
 
         cur.execute(
-            "INSERT into preprocess (id, function, type, var_name, line_no, file, selected) VALUES (%s, %s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
-            (id, function, type, var_name, line_no, file_p, selected)
+            "INSERT into preprocess (id, function, type, var_name, line_no, file, selected, priority) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
+            (id, function, type, var_name, line_no, file_p, selected, priority)
         )
         conn.commit()
     cur.close()

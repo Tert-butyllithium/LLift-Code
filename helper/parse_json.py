@@ -14,9 +14,20 @@ def parse_json(json_str):
         try:
             json_objs.append(json.loads(json_str))
         except json.JSONDecodeError:
-            pass
+            t_res = workaround_illegal_json(json_str)
+            if t_res is not None:
+                json_objs.append(t_res)
     
     if len(json_objs) == 0:
         return None
     
     return json_objs[-1]
+
+
+def workaround_illegal_json(json_str:str):
+    json_str = json_str.replace(',\n}','\n}')
+
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        return None

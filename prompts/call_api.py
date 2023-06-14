@@ -30,6 +30,10 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     except Exception as e:
         logging.error(e)
         emsg = str(e)
+        if "maximum context length" in emsg:
+            if model == "gpt-3.5-turbo-0613":
+                return _do_request("gpt-3.5-turbo-16k-0613", temperature, max_tokens, formatted_messages, _retry, last_emsg)
+
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
             return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
@@ -278,6 +282,11 @@ def do_preprocess(prep,  model):
     print(responce)
 
     responce = parse_json(responce)
+    # if "initializer" in responce:
+    #     responce = responce["initializer"]
+    if "initializers" in responce:
+        responce = responce["initializers"]
+
     if 'postcondition' in responce:
         responce['postcondition'] = warp_postcondition(
             responce['postcondition'], responce['initializer'])
@@ -304,13 +313,15 @@ def do_preprocess(prep,  model):
                     responce['postcondition'] = warp_postcondition(
                         responce['postcondition'], responce['initializer'])
                     try_found = True
-            assert type(responce['postcondition']) == str
+                    break
+            # assert responce['postcondition'] is None or type(responce['postcondition']) == str
+            # try_found = True
         except Exception:
             pass
 
         if not try_found:
             logging.error("ChatGPT not output in our format: ", responce)
-            return "{}"
+            return json.dumps(responce)
 
     responce['suspicious'], responce['initializer'] = warp_ret_value(
         responce['suspicious'], responce['initializer'])
