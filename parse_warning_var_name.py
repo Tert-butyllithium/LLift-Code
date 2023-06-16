@@ -11,11 +11,11 @@ conn = psycopg2.connect(**DATABASE_CONFIG)
 
 
 def fetch_all(cur):
-    batch_size = 100
+    batch_size = 1000
     offset = 0
-    max_number = 20000
+    max_number = 1000000
     max_id = 1000000
-    min_id = 100000
+    min_id = 0
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         cur.execute(

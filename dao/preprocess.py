@@ -2,7 +2,6 @@ import logging
 from common.config import LINUX_PATH
 import os
 
-
 class Preprocess:
     def __init__(self, id, function, var_name, line_no, file, preprocess, raw_ctx, analysis, group = -1, last_round = -1) -> None:
         self.id = id
@@ -22,8 +21,12 @@ class Preprocess:
 
         with open(file_path, 'r', errors='ignore') as f:
             lines = f.readlines()
+        
+        if self.line_no >= len(lines):
+            logging.error(f"Line number {self.line_no} out of range in file {self.file}.")
+            return
 
-        for i in range(self.line_no - 1, -1, -1):
+        for i in range(self.line_no, -1, -1):
             line = lines[i]
             if function_start == -1 and line == "{\n":
                 function_start = i + 1

@@ -278,7 +278,7 @@ def do_preprocess(prep,  model):
     message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model, max_tokens=1024)
+        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)
     print(responce)
 
     responce = parse_json(responce)
