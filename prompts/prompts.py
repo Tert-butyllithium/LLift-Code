@@ -7,57 +7,55 @@ class Prompt:
         self.continue_text = continue_text
 
 
-# version v3.0 (June 4, 2023)
+# version v3.1 (June 17, 2023)
 __preprocess_system_text = """
-Given the context, the suspicious variable, and its usage site, tell me which function(s) could initialize the variable before its use.
-Additionally, you are required to point out the 
-the postcondition of each initialization function by a simple reachability analysis.
+As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable usage.
 
-The postcondition is constraints that must be satisfied to make the path from the initialization func to reach the usage site. The postcondition can be found in the following ways:
+If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
-A. after function check, before its usage. E.g.,
+Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable usage point. Here are the methods to identify postconditions:
+
+Function Check Prior to Variable Use:
+Consider a scenario where a variable is used after a function check, such as:
+
+```
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
+```
+Here, the postcondition would be "ret_val>=4". Another example can be the use of switch(...) and the variable usages under a specific case:
 
-And the postcondition is “ret_val>=4”.
-
-An alternative is switch(...) and the usages under some “case case1”. For example,
 ```
 switch(ret_val = func(..., &a)){
- case big_failure:
+   case some_condi:
    …
-   break
-   case big_success:
-   // use of a
+   break;
+   case critical_condi:
+      use(a) // use of a
 }
 ```
+In this instance, since we're focused on the use of 'a', the postcondition here is "critical_condi".
 
-Since we only care about the use of a. We can say the postcondition here is only “big_success”
-
-B. after function check, return code failures. E.g., if(func(..)<0) return
+Function Check and Return Code Failures:
+In some cases, the function check happens before a return code failure, such as:
 
 ```
 ret_val = func(..., &a); 
-if (ret_val) { return/break/ goto ...; }
+if (ret_val < 0) { return/break/ goto ...; }
 …
-// use of a
+use(a) // use of a
 ```
 
-if it doesn't contain any explicit change the control (such as return, break, or goto) that stops reaching the usage site, you should directly ignore it cause it guarantees nothing. You should assume the function never fails/crashes but can return with any values. For example:
-```
-if(some_check){
-do_something(...);
-//you don’t find any break or return
-}
-```
-This `some_check` should be ignored,
+In this scenario, the postcondition is "ret_val>=0".
 
-If there are multiple checks, you should list them and also indicate their relationships: && or ||
+If there's no explicit control change (like return, break, or goto) that prevents reaching the variable's usage point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
 
-All context I give you is complete and sufficient; you shouldn’t assume there are some hidden breaks or returns. Think step by step. 
+For multiple checks, list them along with their relationships, i.e., && or ||.
+
+Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns. Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
 """
 
 __preprocess_continue_text = """
 looking back at the analysis, consider the following:
+- We only consider cases the initializer should be a function, if it's not, ignore it
 - the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
 - the postcondition should not contain the suspicious variable, if it does, remove it
 - the initializer should include the return value, if it was refered in the postcondition or suspicious variable
@@ -80,6 +78,9 @@ For multiple initializations, respond as:
  {"initializer":...,  "suspicious": ..., "postcondition":... }
 ]
 
+If not any initializer, albeit rare, you should return an empty list.
+[]
+
 """
 
 # analyze: version v3.0 (Jun 14, 2023)
@@ -89,7 +90,7 @@ __analyze_system_text = """
 You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
-For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4”, we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n”, so “may_init” for n.
+For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4", we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n", so “may_init" for n.
 
 If you find any early returns before the assignment statement that possibly makes it unreachable:
 ```
@@ -112,13 +113,17 @@ And I’ll give you what you want to let you analyze it again.
 """
 
 __analyze_json_gen = """
-Based on our discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
+Looking back your analysis, "must_init" means the variable must be initialized with the postconidtion, initialized is defined with "assigned"; so NULL and error code are considered as initialization.
+"may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
+
+Then, based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
 For each "may_init",  you should indicates its condition (if applicable)):
 For instance:
 
 {
-“ret”: “success”,
-“response”: {
+"ret": "success",
+"confidence": "true",
+"response": {
  "must_init": ["a", "b", "c", "d"],
  "may_init": ["n", "condition": "ret_val > 4"],
  "must_no_init": []

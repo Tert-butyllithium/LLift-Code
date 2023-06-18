@@ -32,7 +32,7 @@ def read_line_of_file(filepath, lineno):
     return " " + line.strip()
 
 
-if __name__ == "__main__":
+def go():
     cur = conn.cursor()
     failed = []
     suc_count = 0
@@ -83,3 +83,6 @@ if __name__ == "__main__":
         print(f[0], "; ", f[1], "; ")
     print(f"Success count: {suc_count}")
     print(f"Failed count: {len(failed)}")
+
+if __name__ == "__main__":
+    go()

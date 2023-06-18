@@ -22,5 +22,13 @@
             897
         ],
         "version": "v4.14"
+    },
+    "b53_read8": {
+        "file": "drivers/net/dsa/b53/b53_priv.h",
+        "lineno": [
+            207,
+            216
+        ],
+        "version": "v4.14"
     }
 }

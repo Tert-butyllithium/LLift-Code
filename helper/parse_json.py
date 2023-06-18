@@ -1,13 +1,14 @@
 import json
 import regex
 
+ERR_PARSE_JSON = '{"error": "no json found!"}'
 
 def parse_json(json_str):
     pattern = regex.compile('\{(?:[^{}]|(?R))*\}')
     json_res = pattern.findall(json_str)
     
     if len(json_res) == 0:
-        return None
+        return ERR_PARSE_JSON
 
     json_objs = []
     for json_str in json_res:
@@ -20,14 +21,13 @@ def parse_json(json_str):
                 json_objs.append(t_res)
     
     if len(json_objs) == 0:
-        return None
+        return ERR_PARSE_JSON
     
     return json_objs[-1]
 
 
 def workaround_illegal_json(json_str:str):
     json_str = json_str.replace(',\n}','\n}')
-
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:

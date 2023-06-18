@@ -52,8 +52,8 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
     # Format conversation messages
     formatted_messages = [
-        {"role": "system", "content": ""},
-        {"role": "user", "content": prompt.system},
+        {"role": "system", "content": prompt.system},
+        # {"role": "user", "content": },
         # {"role": "assistant","content": start_str},
         {"role": "user", "content": message}
     ]
@@ -174,9 +174,9 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                         provided_defs += func_def + "\n"
                     else:
                         logging.error(f"function {require['name']} not found")
-                        provided_defs += f"Sorry, I don't find function {require['name']}, continue analysis without it\n"
+                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your knowledge and experience\n"
                 else:
-                    provided_defs += f"Sorry, no information of {require} I can provide, continue analysis without it\n"
+                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your knowledge and experience\n"
 
             if is_func_def:
 
@@ -256,6 +256,9 @@ def warp_ret_value(suspicious_vars: list, initializer: str):
     """
     if suspicious_vars is None or initializer is None:
         return suspicious_vars, initializer
+    
+    if type(suspicious_vars) is str:
+        suspicious_vars = [suspicious_vars]
 
     if '=' not in initializer:
         return suspicious_vars, initializer
