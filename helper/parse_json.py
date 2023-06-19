@@ -1,7 +1,7 @@
 import json
 import regex
 
-ERR_PARSE_JSON = '{"error": "no json found!"}'
+ERR_PARSE_JSON = {"error": "no json found!"}
 
 def parse_json(json_str):
     pattern = regex.compile('\{(?:[^{}]|(?R))*\}')

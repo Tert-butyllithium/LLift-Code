@@ -23,7 +23,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
             messages=formatted_messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            top_p=0.92,
+            top_p=1,
             frequency_penalty=0,
             presence_penalty=0,
         )
@@ -169,6 +169,11 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
             for require in json_res["response"]:
                 if require["type"] == "function_def":
                     is_func_def = True
+                    if 'name' not in require:
+                        logging.error(f"function name not found")
+                        provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
+                        continue
+
                     func_def = get_func_def_easy(require["name"])
                     if func_def is not None:
                         provided_defs += func_def + "\n"
@@ -179,7 +184,6 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                     provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your knowledge and experience\n"
 
             if is_func_def:
-
                 provided_defs = _provide_func_heading + provided_defs
             else:
                 provided_defs = "" + provided_defs
@@ -226,10 +230,13 @@ def warp_postcondition(postcondition: str, initializer):
     if postcondition is None:
         return None
 
-    if '=' not in initializer:
+    if initializer is None or '=' not in initializer:
         return postcondition
     if initializer[-1] == ';':
         initializer = initializer[:-1]
+
+    if type(postcondition) != str:
+        return postcondition
 
     ret_val_name = initializer.split("=")[0].strip()
 
@@ -278,7 +285,7 @@ def warp_ret_value(suspicious_vars: list, initializer: str):
 
 def do_preprocess(prep,  model):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
-    message = f"suspicous varaible: {prep.var_name}\nusage site: {use_site}\n\nCode:\n{prep.raw_ctx}"
+    message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)

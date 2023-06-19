@@ -9,19 +9,19 @@ class Prompt:
 
 # version v3.1 (June 17, 2023)
 __preprocess_system_text = """
-As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable usage.
+As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable use.
 
 If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
-Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable usage point. Here are the methods to identify postconditions:
+Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable use point. Here are the methods to identify postconditions:
 
-Function Check Prior to Variable Use:
+Type A. Prior to Variable Use:
 Consider a scenario where a variable is used after a function check, such as:
 
 ```
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
 ```
-Here, the postcondition would be "ret_val>=4". Another example can be the use of switch(...) and the variable usages under a specific case:
+Here, the postcondition would be "ret_val>=4". Another variant (Type A') can be the use of switch(...) and the variable uses under a specific case:
 
 ```
 switch(ret_val = func(..., &a)){
@@ -34,19 +34,19 @@ switch(ret_val = func(..., &a)){
 ```
 In this instance, since we're focused on the use of 'a', the postcondition here is "critical_condi".
 
-Function Check and Return Code Failures:
+Type B. Return Code Failures:
 In some cases, the function check happens before a return code failure, such as:
 
 ```
 ret_val = func(..., &a); 
-if (ret_val < 0) { return/break/ goto ...; }
+if (ret_val < 0) { return/break/ goto .../...; }
 …
 use(a) // use of a
 ```
 
 In this scenario, the postcondition is "ret_val>=0".
 
-If there's no explicit control change (like return, break, or goto) that prevents reaching the variable's usage point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
+If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
 
 For multiple checks, list them along with their relationships, i.e., && or ||.
 
@@ -54,12 +54,13 @@ Please remember that the context provided is complete and sufficient. You should
 """
 
 __preprocess_continue_text = """
-looking back at the analysis, consider the following:
+looking back at the analysis, thinking more carefully for the postconidtion with its context, consider the following:
+- substitute the postcondition with the context of use, is it complete for both prior to use and return code failure?
 - We only consider cases the initializer should be a function, if it's not, ignore it
 - the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
-- the postcondition should not contain the suspicious variable, if it does, remove it
+- the postcondition should not come from the use itself, if it does, remove it
 - the initializer should include the return value, if it was refered in the postcondition or suspicious variable
-- A postcondition must directly affect the reachability of the usage site; so for failure check, if there's no explicit \texttt{return/break/goto...} that makes the following use impossible, it should be ignored.
+- You should mention the the type of each postcondition: "prior_use", "return_code_failure", or "both"
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
 - Thinking step by step, if there are multiple initializations, you should respond with a list.
 """
@@ -69,7 +70,8 @@ Conclude your analysis in a json format; for example:
 {
    "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicious": ["a", "b", "c", "d"],
-   "postcondition": "res >=4"
+   "postcondition": "res >=4",
+   "postcondition_type": "prior_use"
 }
 
 For multiple initializations, respond as:
@@ -78,8 +80,8 @@ For multiple initializations, respond as:
  {"initializer":...,  "suspicious": ..., "postcondition":... }
 ]
 
-If not any initializer, albeit rare, you should return an empty list.
-[]
+If not any initializer, albeit rare, you should return an empty list:
+{[]}
 
 """
 
