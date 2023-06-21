@@ -68,23 +68,24 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     logging.info(assistant_message)
 
     # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
-                               {"role": "user", "content": prompt.continue_text}
-                               ])
-    assistant_message2 = _do_request(
-        model, temperature, max_tokens, formatted_messages)
+    # w/o self-refinement
+    # formatted_messages.extend([{"role": "assistant", "content": assistant_message},
+    #                            {"role": "user", "content": prompt.continue_text}
+    #                            ])
+    # assistant_message2 = _do_request(
+    #     model, temperature, max_tokens, formatted_messages)
 
-    plog = PreprocessLog()
-    plog.commit(item_id, assistant_message, assistant_message2, model)
+    # plog = PreprocessLog()
+    # plog.commit(item_id, assistant_message, assistant_message2, model)
 
-    logging.info(assistant_message2)
+    # logging.info(assistant_message2)
 
     # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message2},
+    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                {"role": "user", "content": prompt.json_gen}
                                ])
     assistant_message3 = _do_request(
-        model, 0.4, max_tokens, formatted_messages)
+        model, temperature, max_tokens, formatted_messages)
 
     plog = PreprocessLog()
     plog.commit(item_id, assistant_message, assistant_message3, model)
