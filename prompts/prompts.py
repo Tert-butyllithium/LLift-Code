@@ -54,7 +54,7 @@ Please remember that the context provided is complete and sufficient. You should
 """
 
 __preprocess_continue_text = """
-looking back at the analysis, thinking more carefully for the postconidtion with its context, consider the following:
+looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
 - substitute the postcondition with the context of use, is it complete for both prior to use and return code failure?
 - We only consider cases the initializer should be a function, if it's not, ignore it
 - the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
@@ -108,6 +108,10 @@ In this case,
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
 Once all early returns are unreachable, you can mark the variable as "must_init".
 
+There're some facts that we assume are always satisfied
+- A return value of a function is always initialized
+- the `adress` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
+
 You should think step by step.
 Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
@@ -115,8 +119,9 @@ And I’ll give you what you want to let you analyze it again.
 """
 
 __analyze_json_gen = """
-Looking back your analysis, "must_init" means the variable must be initialized with the postconidtion, initialized is defined with "assigned"; so NULL and error code are considered as initialization.
+Review the analysis above carefully, initialized is defined with "assigned"; so NULL and error code are considered as valid initialization.
 "may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
+if the condition of "may_init" is the the postcondition, or something must be true, you should classify it as "must_init".
 
 Then, based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
 For each "may_init",  you should indicates its condition (if applicable)):
