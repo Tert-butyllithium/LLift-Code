@@ -120,6 +120,9 @@ And I’ll give you what you want to let you analyze it again.
 
 __analyze_json_gen = """
 Review the analysis above carefully, initialized is defined with "assigned"; so NULL and error code are considered as valid initialization.
+you should NOT assume a function could never return; and the system never goes crash, trap in a while(1) loop, or null pointer dereference.
+All functions must return with something; when we say "it fails", we refer it to find something unexpected and return a error code, but never crash.
+
 "may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
 if the condition of "may_init" is the the postcondition, or something must be true, you should classify it as "must_init".
 

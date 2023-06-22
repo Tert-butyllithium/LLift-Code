@@ -30,5 +30,22 @@
             216
         ],
         "version": "v4.14"
+    },
+    "lookup_address": {
+        "file": "arch/x86/mm/pageattr.c",
+        "lineno": [
+            394,
+            405
+        ],
+        "version": "v4.14"
+    },
+    "lookup_address_in_pgd": {
+        "file": "arch/x86/mm/pageattr.c",
+        "lineno": [
+            349,
+            392
+        ],
+        "version": "v4.14"
+    },
     }
 }
