@@ -47,5 +47,12 @@
         ],
         "version": "v4.14"
     },
+    "start_transaction":{
+        "file": "fs/btrfs/transaction.c",
+        "lineno": [
+            475,
+            611
+        ]
     }
+
 }

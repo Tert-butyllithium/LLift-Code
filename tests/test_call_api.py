@@ -81,6 +81,24 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
 """)
         print(parse_json(response))
     
+    def test_json4(self):
+        response = ("""
+        The final analysis result can be presented as follows:
+```json
+{
+"ret": "success",
+"confidence": "true",
+"response": {
+ "must_init": ["pages[j]", "condition": "j < get_user_pages_unlocked(uaddr, nr_pages, pages, rw)"],
+ "may_init": ["pages[j]", "condition": "j >= get_user_pages_unlocked(uaddr, nr_pages, pages, rw)"],
+ "must_no_init": []
+}
+}
+```
+        """)
+        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
+
+
     def test_double_json(self):
         response = ("""
         In the context of your code, the suspicious variable data is initialized by the function snd_soc_read(). The return value of the function snd_soc_read() is not checked directly, therefore, we cannot express a postcondition in terms of its return value.

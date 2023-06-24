@@ -17,6 +17,7 @@ exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
+    sleep(0.5) # avoid rate limit
     try:
         response = openai.ChatCompletion.create(
             model=model,
@@ -122,7 +123,6 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
 
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
-        # return '{"ret": "failed", "response": ' + f"Cannot find function definition in {cs}" + '}'
         return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
 
     prep_res_str = str(prep_res)
@@ -179,9 +179,10 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                         provided_defs += func_def + "\n"
                     else:
                         logging.error(f"function {require['name']} not found")
-                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your knowledge and experience\n"
+                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \
+                                           If this function is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero \n"
                 else:
-                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your knowledge and experience\n"
+                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
 
             if is_func_def:
                 provided_defs = _provide_func_heading + provided_defs
@@ -197,16 +198,24 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
             dialog_id += 1
             alog = AnalysisLog()
             alog.commit(prep.id, round, dialog_id,
-                        provided_defs[:40], assistant_message, model)
+                        provided_defs[:100], assistant_message, model)
 
             formatted_messages.append(
                 {"role": "assistant", "content": assistant_message})
         else:
             break
 
+    # self-refinement 
+    formatted_messages.extend([
+        {"role": "user", "content": prompt.continue_text}
+    ])
+    assistant_message_final = _do_request(
+        model, temperature, max_tokens, formatted_messages)
+
     # let it generate a json output, and save the result
     # Extend the conversation via:
     formatted_messages.extend([
+        {"role": "assistant", "content": assistant_message_final},
         {"role": "user", "content": prompt.json_gen}
     ])
     assistant_message = _do_request(

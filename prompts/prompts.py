@@ -85,7 +85,7 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.0 (Jun 14, 2023)
+# analyze: version v3.2 (Jun 23, 2023)
 # upd: using `system` instead of `user`, adapting for gpt-4-0613
 
 __analyze_system_text = """
@@ -118,24 +118,31 @@ Anytime you feel uncertain due to unknown functions, you should stop analysis an
 And I’ll give you what you want to let you analyze it again.
 """
 
-__analyze_json_gen = """
+
+__analyze_continue_text = """
 Review the analysis above carefully, initialized is defined with "assigned"; so NULL and error code are considered as valid initialization.
 you should NOT assume a function could never return; and the system never goes crash, trap in a while(1) loop, or null pointer dereference.
-All functions must return with something; when we say "it fails", we refer it to find something unexpected and return a error code, but never crash.
+All functions are callable, and must return with something and never crash.
+
+For unknown functions, if it is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero;
+if it is called without any checks, then we can't have any assumpton.
 
 "may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
 if the condition of "may_init" is the the postcondition, or something must be true, you should classify it as "must_init".
 
-Then, based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
+reconsider the "may_init" and "must_init" and think step by step.
+"""
+
+__analyze_json_gen = """
+based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
 For each "may_init",  you should indicates its condition (if applicable)):
 For instance:
-
 {
 "ret": "success",
 "confidence": "true",
 "response": {
  "must_init": ["a", "b", "c", "d"],
- "may_init": ["n", "condition": "ret_val > 4"],
+ "may_init": [{"name":"n", "condition": "ret_val > 4"}],
  "must_no_init": []
 }
 }
@@ -148,4 +155,4 @@ __analyze_json_haading = 'Since `{}` is an unknown function, I will need its def
 ####################
 
 PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen, continue_text=__preprocess_continue_text)
-AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading)
+AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
