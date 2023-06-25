@@ -96,8 +96,28 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
 }
 ```
         """)
-        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
+        self.assertEqual(parse_json(response), {"error": "no json found!"})
 
+    def test_json5(self):
+        response = ("""
+        ```json
+{
+ "ret": "success",
+ "confidence": "true",
+ "response": {
+  "must_init": ["n"],
+  "may_init": [
+   {
+    "name": "p",
+    "condition": "NI"  // NI stands for Not Identified due to lack of information
+   }
+  ],
+  "must_no_init": []
+ }
+}
+```
+        """)
+        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
 
     def test_double_json(self):
         response = ("""
@@ -135,7 +155,7 @@ The above JSON shows that the suspicious variable data is initialized by the snd
             "Based on the analysis above, the JSON format result is:\n"
             "This is not a valid JSON string.\n"
         )
-        self.assertIsNone(parse_json(response))
+        self.assertEqual(parse_json(response), {"error": "no json found!"})
 
     def test_valid_response(self):
         response = (

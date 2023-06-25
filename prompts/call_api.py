@@ -138,7 +138,7 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
         formatted_messages.append(
             {"role": "user", "content": _provide_func_heading + func_def})
 
-    logging.info(formatted_messages[-1])
+    # logging.info(formatted_messages[-1])
 
     # for round in range(1):
     # Call the OpenAI API
@@ -211,6 +211,11 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     ])
     assistant_message_final = _do_request(
         model, temperature, max_tokens, formatted_messages)
+
+    dialog_id += 1
+    alog = AnalysisLog()
+    alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
+                assistant_message_final, model)
 
     # let it generate a json output, and save the result
     # Extend the conversation via:

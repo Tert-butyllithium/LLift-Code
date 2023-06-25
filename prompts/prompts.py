@@ -128,14 +128,15 @@ For unknown functions, if it is called under a return code check, you could assu
 if it is called without any checks, then we can't have any assumpton.
 
 "may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
-if the condition of "may_init" is the the postcondition, or something must be true, you should classify it as "must_init".
+if the condition of "may_init" is the the postcondition, or something must be true (e.g, sizeof(int)>0), you should classify it as "must_init".
 
 reconsider the "may_init" and "must_init" and think step by step.
 """
 
 __analyze_json_gen = """
-based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
-For each "may_init",  you should indicates its condition (if applicable)):
+based on our final result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
+
+For each "may_init",  you should indicates its condition (if applicable, or say "condition": "unknown" if you can't determine):
 For instance:
 {
 "ret": "success",

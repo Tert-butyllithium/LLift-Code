@@ -4,6 +4,11 @@ import regex
 ERR_PARSE_JSON = {"error": "no json found!"}
 
 def parse_json(json_str):
+    pattern_comments = regex.compile('//.*\n')
+    comments = pattern_comments.findall(json_str)
+    for comment in comments:
+        json_str = json_str.replace(comment, '\n')
+
     pattern = regex.compile('\{(?:[^{}]|(?R))*\}')
     json_res = pattern.findall(json_str)
     
