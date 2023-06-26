@@ -120,22 +120,20 @@ And I’ll give you what you want to let you analyze it again.
 
 
 __analyze_continue_text = """
-Review the analysis above carefully, initialized is defined with "assigned"; so NULL and error code are considered as valid initialization.
-you should NOT assume a function could never return; and the system never goes crash, trap in a while(1) loop, or null pointer dereference.
-All functions are callable, and must return with something and never crash.
+Review the analysis above carefully; initialized is defined with "assigned,"; so NULL and error code are considered valid initialization.
+All functions are callable, must return with something, and never crash or fail. The system won't crash, trap in a while(1) loop, or null pointer dereference.
 
-For unknown functions, if it is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero;
-if it is called without any checks, then we can't have any assumpton.
+For unknown functions, if it is called under a return code check, you could assume this function must init when it returns 0, and must not init when it returns non-zero;
+if it is called without any checks, we can't have any assumptions.
 
-"may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
-if the condition of "may_init" is the the postcondition, or something must be true (e.g, sizeof(int)>0), you should classify it as "must_init".
+"may_init" is a safe answer; if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init."
+If the condition of "may_init" is the postcondition, or something must be true (e.g., sizeof(int)>0), you should classify it as "must_init".
 
-reconsider the "may_init" and "must_init" and think step by step.
+Reconsider the "may_init" and "must_init" and think step by step.
 """
 
 __analyze_json_gen = """
-based on our final result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
-
+based on our conclusion, generate the json format result. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
 For each "may_init",  you should indicates its condition (if applicable, or say "condition": "unknown" if you can't determine):
 For instance:
 {

@@ -52,7 +52,15 @@
         "lineno": [
             475,
             611
-        ]
+        ],
+        "version": "v4.14"
+    },
+    "afinfo->decode_session":{
+        "file": "net/ipv4/xfrm4_policy.c",
+        "lineno": [
+            109,
+            219
+        ],
+        "version": "v4.14"
     }
-
 }
