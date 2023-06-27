@@ -85,9 +85,8 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.2 (Jun 23, 2023)
-# upd: using `system` instead of `user`, adapting for gpt-4-0613
-
+# analyze: version v3.3 (Jun 26, 2023)
+# upd: tweak self-refinement, listing some "always true" facts
 __analyze_system_text = """
 You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
@@ -120,21 +119,26 @@ And I’ll give you what you want to let you analyze it again.
 
 
 __analyze_continue_text = """
-Review the analysis above carefully; initialized is defined with "assigned,"; so NULL and error code are considered valid initialization.
+Review the analysis above carefully; initialized is defined with "assigned"; so NULL and error code are considered valid initialization.
 All functions are callable, must return with something, and never crash or fail. The system won't crash, trap in a while(1) loop, or null pointer dereference.
 
-For unknown functions, if it is called under a return code check, you could assume this function must init when it returns 0, and must not init when it returns non-zero;
-if it is called without any checks, we can't have any assumptions.
+For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0, and not init when it returns non-zero;
+if it is called without any checks, we can't have any assumptions and it could do anything.
 
-"may_init" is a safe answer; if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init."
-If the condition of "may_init" is the postcondition, or something must be true (e.g., sizeof(int)>0), you should classify it as "must_init".
+if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init."
+If the condition of "may_init" is consistant with the postcondition, or other common sense to be true, you should classify it as "must_init".
+
+Common sense to be true:
+1. constant you can calculate: for example, sizeof(int) or size of other varaibles where you know the type
+2. not null for the address of the stack varaible. Also, for suspicious variables, you can assume the address is not NULL. 
+
 
 Reconsider the "may_init" and "must_init" and think step by step.
 """
 
 __analyze_json_gen = """
-based on our conclusion, generate the json format result. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
-For each "may_init",  you should indicates its condition (if applicable, or say "condition": "unknown" if you can't determine):
+based on our analysis result, generate the json format result. 
+For each "may_init",  you should indicates its condition (or say "condition": "unknown" if you can't determine):
 For instance:
 {
 "ret": "success",
