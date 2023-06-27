@@ -172,6 +172,3 @@ The above JSON shows that the suspicious variable data is initialized by the snd
             "afc": None,
         }
         self.assertEqual(parse_json(response), expected_output)
-
-    def test_interactive(self):
-        pass
