@@ -211,6 +211,8 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     ])
     assistant_message_final = _do_request(
         model, temperature, max_tokens, formatted_messages)
+    
+    logging.info(assistant_message_final)
 
     dialog_id += 1
     alog = AnalysisLog()
@@ -218,13 +220,16 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                 assistant_message_final, model)
 
     # let it generate a json output, and save the result
-    # Extend the conversation via:
-    formatted_messages.extend([
+    # ignore interative messages
+    json_gen_msg = formatted_messages[:3] 
+    json_gen_msg += formatted_messages[-2:]
+    
+    json_gen_msg += [
         {"role": "assistant", "content": assistant_message_final},
         {"role": "user", "content": prompt.json_gen}
-    ])
+    ]
     assistant_message = _do_request(
-        model, temperature, max_tokens, formatted_messages)
+        model, temperature, max_tokens, json_gen_msg)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalysisLog()
@@ -259,9 +264,10 @@ def warp_postcondition(postcondition: str, initializer):
     initializer_call = initializer.split("=")[1].strip()
 
     init_call_func_name = initializer_call.split("(")[0]
+
     # Workaround: if return value reuses a parameter
-    if ret_val_name in initializer_call[len(init_call_func_name):]:
-        return postcondition
+    # if ret_val_name in initializer_call[len(init_call_func_name):]:
+    #     return postcondition
 
     return postcondition.replace(ret_val_name, initializer_call)
 
