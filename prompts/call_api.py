@@ -16,7 +16,10 @@ trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 
-def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
+def _do_request(model:str, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
+    if model.endswith("--one-step"):
+        model = model[:-10]
+
     sleep(0.5) # avoid rate limit
     try:
         response = openai.ChatCompletion.create(
@@ -382,5 +385,135 @@ def do_preprocess(prep,  model):
 def do_analysis(prep, round,  model):
     response = call_gpt_analysis(
         prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=1.0)
+    print(response)
+    return json.dumps(response)
+
+
+def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048, case=None):
+    _provide_func_heading = "Here it is, you can continue asking for other functions.\n"
+    
+    if case == None:
+        return parse_json("")
+    
+
+    use_site = case.raw_ctx.strip().split("\n")[-1].strip()
+    message = f"suspicous varaible: {case.var_name}\nuse: {use_site}\n\nCode:\n{case.raw_ctx}"
+
+
+
+    formatted_messages = [
+        {"role": "system", "content": prompt.system},
+        # {"role": "user", "content": prompt.system},
+        {"role": "user", "content": message},
+    ]
+    # if func_name not in trivial_funcs:
+    #     formatted_messages.append(
+    #         {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
+    #     formatted_messages.append(
+    #         {"role": "user", "content": _provide_func_heading + func_def})
+
+    # logging.info(formatted_messages[-1])
+
+    # for round in range(1):
+    # Call the OpenAI API
+    assistant_message = _do_request(
+        model, temperature, max_tokens, formatted_messages)
+    # assistant_message = response["choices"][0]["message"]["content"]
+    dialog_id = 0
+
+    if assistant_message.startswith('{"ret": "failed", "response": "'):
+        # logging.error(assistant_message)
+        return json.loads(assistant_message)
+
+    logging.info(assistant_message)
+    alog = AnalysisLog()
+    alog.commit(prep.id, round, dialog_id,
+                message[:50], assistant_message, model)
+    formatted_messages.extend(
+        [{"role": "assistant", "content": assistant_message}])
+
+    # interactive process
+    while True:
+        json_res = parse_json(assistant_message)
+        if json_res is None or "ret" not in json_res:  # finish the analysis
+            break
+        if json_res["ret"] == "need_more_info":
+            is_func_def = False
+            provided_defs = ""
+            for require in json_res["response"]:
+                if require["type"] == "function_def":
+                    is_func_def = True
+                    if 'name' not in require:
+                        logging.error(f"function name not found")
+                        provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
+                        continue
+
+                    func_def = get_func_def_easy(require["name"])
+                    if func_def is not None:
+                        provided_defs += func_def + "\n"
+                    else:
+                        logging.error(f"function {require['name']} not found")
+                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \
+                                           If this function is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero \n"
+                else:
+                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
+
+            if is_func_def:
+                provided_defs = _provide_func_heading + provided_defs
+            else:
+                provided_defs = "" + provided_defs
+
+            formatted_messages.extend([
+                {"role": "user", "content": provided_defs}
+            ])
+            assistant_message = _do_request(
+                model, temperature, max_tokens, formatted_messages)
+            logging.info(assistant_message)
+            dialog_id += 1
+            alog = AnalysisLog()
+            alog.commit(prep.id, round, dialog_id,
+                        provided_defs[:100], assistant_message, model)
+
+            formatted_messages.append(
+                {"role": "assistant", "content": assistant_message})
+        else:
+            break
+
+    # self-refinement 
+    formatted_messages.extend([
+        {"role": "user", "content": prompt.continue_text}
+    ])
+    assistant_message_final = _do_request(
+        model, temperature, max_tokens, formatted_messages)
+    
+    logging.info(assistant_message_final)
+
+    dialog_id += 1
+    alog = AnalysisLog()
+    alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
+                assistant_message_final, model)
+
+    # let it generate a json output, and save the result
+    # ignore interative messages
+    json_gen_msg = formatted_messages[:3] 
+    json_gen_msg += formatted_messages[-2:]
+    
+    json_gen_msg += [
+        {"role": "assistant", "content": assistant_message_final},
+        {"role": "user", "content": prompt.json_gen}
+    ]
+    assistant_message = _do_request(
+        model, temperature, max_tokens, json_gen_msg)
+    # assistant_message = response["choices"][0]["message"]["content"]
+    dialog_id += 1
+    alog = AnalysisLog()
+    alog.commit(prep.id, round, dialog_id,
+                prompt.json_gen[:40], assistant_message, model)
+    return parse_json(assistant_message)
+
+
+def do_analysis_all_in_one(prep, round, case, model):
+    response = call_gpt_analysis_one_step(
+        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=1.0, case=case)
     print(response)
     return json.dumps(response)

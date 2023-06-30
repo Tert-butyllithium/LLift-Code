@@ -8,7 +8,7 @@ import json
 from dao.case_sampling import CaseSampling
 from dao.sampling_res import SamplingRes
 from common.config import DB_CONFIG, EVAL_RES_TABLE
-from prompts.call_api import do_preprocess, do_analysis
+from prompts.call_api import do_preprocess, do_analysis, do_analysis_all_in_one
 
 
 # Create the engine
@@ -79,6 +79,7 @@ def result_stable_check(res, new_res):
 
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
+    model = model + '--one-step'
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
@@ -91,23 +92,27 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     f"Preprocessing function {case.function} with context {case.raw_ctx[:20]}...")
 
                 # Preprocessing
-                
                 sampling_res = session.query(SamplingRes).filter(
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
-                # we allow small inconsistency between preprocessing results
-                if sampling_res:
-                    initializer = sampling_res.initializer
-                else:
-                    initializer = do_preprocess(case, model)
+                # # we allow small inconsistency between preprocessing results
+                # if sampling_res:
+                #     initializer = sampling_res.initializer
+                # else:
+                #     initializer = do_preprocess(case, model)
+                #     sampling_res = SamplingRes(
+                #         id=case.id, model=model, initializer=initializer, group=group, stable=True)
+                #     session.add(sampling_res)
+
+                if not sampling_res:
                     sampling_res = SamplingRes(
-                        id=case.id, model=model, initializer=initializer, group=group, stable=True)
+                        id=case.id, model=model, initializer=None, group=group, stable=True)
                     session.add(sampling_res)
 
-                logging.info(
-                    f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
+                # logging.info(
+                #     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                result = do_analysis(sampling_res, case.last_round,  model)
+                result = do_analysis_all_in_one(sampling_res, case.last_round, case, model)
 
                 if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
@@ -118,6 +123,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 # Analysis
 
                 sampling_res.result = result  # Updating the result with analysis output
+
 
                 logging.info(
                     f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
