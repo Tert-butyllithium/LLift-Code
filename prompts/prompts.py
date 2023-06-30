@@ -57,10 +57,10 @@ __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
 - substitute the postcondition with the context of use, is it complete for both prior to use and return code failure?
 - We only consider cases the initializer should be a function, if it's not, ignore it
-- the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
-- the postcondition should not come from the use itself, if it does, remove it
+- the postcondition should be checks of the return values or parameters of the initializer; if not, ignore it
+- the check of postcondition should be the exact the use itself, if it does, remove it
 - the initializer should include the return value, if it was refered in the postcondition or suspicious variable
-- You should mention the the type of each postcondition: "prior_use", "return_code_failure", or "both"
+- You should mention the the type of each postcondition: "prior_use", "return_code_failure", or "prior_use&return_code_failure"
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
 - Thinking step by step, if there are multiple initializations, you should respond with a list.
 """
@@ -131,6 +131,7 @@ If the condition of "may_init" is consistant with the postcondition, or other co
 Common sense to be true:
 1. constant you can calculate: for example, sizeof(int) or size of other varaibles where you know the type
 2. not null for the address of the stack varaible. Also, for suspicious variables, you can assume the address is not NULL. 
+3. function call always return (e.g., never crash, fail, or cause kernel panic)
 
 
 Reconsider the "may_init" and "must_init" and think step by step.

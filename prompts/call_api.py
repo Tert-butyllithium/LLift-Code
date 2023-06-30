@@ -237,12 +237,13 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
                 prompt.json_gen[:40], assistant_message, model)
     return parse_json(assistant_message)
 
+
+
 # TODO bug: if the return value reuses the parameter name
-
-
-def warp_postcondition(postcondition: str, initializer):
+# TODO: do we really needs it?
+def wrap_postcondition(postcondition: str, initializer):
     """
-    warp the postcondition if:
+    wrap the postcondition if:
     - the initializer retutrn a value and save it to a variable
     - the postcondition use the variable
     """
@@ -254,8 +255,7 @@ def warp_postcondition(postcondition: str, initializer):
     if initializer[-1] == ';':
         initializer = initializer[:-1]
 
-    if type(postcondition) != str:
-        return postcondition
+
 
     ret_val_name = initializer.split("=")[0].strip()
 
@@ -263,44 +263,58 @@ def warp_postcondition(postcondition: str, initializer):
         ret_val_name = ret_val_name.split(" ")[-1].strip()
     initializer_call = initializer.split("=")[1].strip()
 
-    init_call_func_name = initializer_call.split("(")[0]
+    # init_call_func_name = initializer_call.split("(")[0]
 
     # Workaround: if return value reuses a parameter
     # if ret_val_name in initializer_call[len(init_call_func_name):]:
     #     return postcondition
 
-    return postcondition.replace(ret_val_name, initializer_call)
+    if type(postcondition) == str:
+        return postcondition.replace(ret_val_name, initializer_call)
+    else:
+        return postcondition
 
 
-# wrap the suspicious variable if it is the return value to avoid var reuse
-def warp_ret_value(suspicious_vars: list, initializer: str):
+
+# change the name of return_value to `func_ret_val` and change them in postcondition and suspicious_vars
+def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
     """
-    warp the ret_value if:
+    wrap the ret_value if:
     - return value is the suspicious variable
     - @param suspicious_vars: list of suspicious variables
     - @param initializer: the initializer
     - @return: the new suspicious variables and the new initializer
     """
     if suspicious_vars is None or initializer is None:
-        return suspicious_vars, initializer
+        return suspicious_vars, initializer, postcondition
     
     if type(suspicious_vars) is str:
         suspicious_vars = [suspicious_vars]
 
     if '=' not in initializer:
-        return suspicious_vars, initializer
+        return suspicious_vars, initializer, postcondition
 
     if initializer[-1] == ';':
         initializer = initializer[:-1]
 
     ret_val_name = initializer.split("=")[0].strip()
 
+
+    initializer = initializer.replace(ret_val_name, "func_ret_val", 1)
+    
     if ret_val_name in suspicious_vars:
-        initializer = initializer.replace(ret_val_name, "func_ret_val", 1)
         suspicious_vars.remove(ret_val_name)
         suspicious_vars.append("func_ret_val")
+    
+    if type(postcondition) == list:
+        for i, post in enumerate(postcondition):
+            if ret_val_name in post:
+                postcondition[i] = post.replace(ret_val_name, "func_ret_val", 1)
+    elif type(postcondition) == str:
+        if ret_val_name in postcondition:
+            postcondition = postcondition.replace(ret_val_name, "func_ret_val", 1)
 
-    return suspicious_vars, initializer
+    return suspicious_vars, initializer, postcondition
 
 
 def do_preprocess(prep,  model):
@@ -317,10 +331,13 @@ def do_preprocess(prep,  model):
     if "initializers" in responce:
         responce = responce["initializers"]
 
-    if 'postcondition' in responce:
-        responce['postcondition'] = warp_postcondition(
-            responce['postcondition'], responce['initializer'])
-    else:
+    if 'postconditions' in responce:
+        responce['postcondition'] = responce['postconditions']
+    
+
+
+    # try not do the wrap
+    if 'postcondition' not in responce:
         try_found = False
         try:
             if type(responce) == list:
@@ -340,8 +357,8 @@ def do_preprocess(prep,  model):
                     if exclude:
                         continue
                     responce = item
-                    responce['postcondition'] = warp_postcondition(
-                        responce['postcondition'], responce['initializer'])
+                    # responce['postcondition'] = wrap_postcondition(
+                    #     responce['postcondition'], responce['initializer'])
                     try_found = True
                     break
             # assert responce['postcondition'] is None or type(responce['postcondition']) == str
@@ -352,9 +369,13 @@ def do_preprocess(prep,  model):
         if not try_found:
             logging.error("ChatGPT not output in our format: ", responce)
             return json.dumps(responce)
-
-    responce['suspicious'], responce['initializer'] = warp_ret_value(
-        responce['suspicious'], responce['initializer'])
+    
+    
+    if 'postcondition' in responce and 'initializer' in responce and 'suspicious' in responce:
+        responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
+            responce['suspicious'], responce['initializer'], responce['postcondition'])
+    else:
+        logging.error("ChatGPT not output in our format: ", responce)
     return json.dumps(responce)
 
 
