@@ -106,7 +106,7 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
         logging.error(f"no call site info!")
         return {"ret": "failed", "response": "no call site info!"}
     
-    if type(cs) == list:
+    if type(cs) == list and len(cs) > 0:
         cs = cs[0]
     if cs == None:
         logging.error(f"no call site info!")
