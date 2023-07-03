@@ -7,7 +7,7 @@ class Prompt:
         self.continue_text = continue_text
 
 
-# version v3.1 (June 17, 2023)
+# version v3.4 (Jul 2, 2023)
 __preprocess_system_text = """
 As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable use.
 
@@ -46,6 +46,10 @@ use(a) // use of a
 
 In this scenario, the postcondition is "ret_val>=0".
 
+beyond `if(...)`, noting loop statements like `while` and `for` also perform checks. You should consider them as well according to the above description.
+
+If the suspicious variable is used in the iteration with index, include the boundary of index as a postcondition
+
 If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
 
 For multiple checks, list them along with their relationships, i.e., && or ||.
@@ -55,14 +59,15 @@ Please remember that the context provided is complete and sufficient. You should
 
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
-- substitute the postcondition with the context of use, is it complete for both prior to use and return code failure?
+- substitute the postcondition with the context of use, is it correct for both prior to use and return code failure?
+- Does the result include all its postconditions? If not, include them to make it 
 - We only consider cases the initializer should be a function, if it's not, ignore it
-- the postcondition should be checks of the return values or parameters of the initializer; if not, ignore it
-- the check of postcondition should be the exact the use itself, if it does, remove it
-- the initializer should include the return value, if it was refered in the postcondition or suspicious variable
-- You should mention the the type of each postcondition: "prior_use", "return_code_failure", or "prior_use&return_code_failure"
+- if the use is a condition check, never include the condition in the postcondition
+- the check of postcondition shouldn't be the exact the use itself, if it does, remove it
+- You should mention the the type of each postcondition: "prior_use", "return_code_failure", ...
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
-- Thinking step by step, if there are multiple initializations, you should respond with a list.
+- if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
+- Thinking step by step, if there are multiple initializations, think about them one by one.
 """
 
 __preprocess_json_gen = """
@@ -85,7 +90,7 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.3 (Jun 26, 2023)
+# analyze: version v3.4 (Jul 2, 2023)
 # upd: tweak self-refinement, listing some "always true" facts
 __analyze_system_text = """
 You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
@@ -107,6 +112,9 @@ In this case,
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
 Once all early returns are unreachable, you can mark the variable as "must_init".
 
+an uninitialized varable can propogate and pollute other variables, so you should consider the following:
+If you see the suspicious varaible to be assigned with another stack varaible that probably to be uninitialized, you should figure out that variable's initialization as well.
+
 There're some facts that we assume are always satisfied
 - A return value of a function is always initialized
 - the `adress` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
@@ -126,7 +134,7 @@ For unknown functions, if it is called under a return code check, you could assu
 if it is called without any checks, we can't have any assumptions and it could do anything.
 
 if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init."
-If the condition of "may_init" is consistant with the postcondition, or other common sense to be true, you should classify it as "must_init".
+If the condition of "may_init" is consistant with the postcondition, or other common sense to be true, you should change it as "must_init".
 
 Common sense to be true:
 1. constant you can calculate: for example, sizeof(int) or size of other varaibles where you know the type
