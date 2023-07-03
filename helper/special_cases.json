@@ -62,5 +62,13 @@
             219
         ],
         "version": "v4.14"
+    },
+    "decode_rs16": {
+        "file": "lib/reed_solomon/decode_rs.c",
+        "lineno": [
+            1,
+            271
+        ],
+        "version":"v4.14"
     }
 }

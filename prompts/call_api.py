@@ -93,7 +93,7 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     return assistant_message3.strip()
 
 
-def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
+def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
     _provide_func_heading = "Here it is, you can continue asking for other functions.\n"
     prep_res = json.loads(prep.initializer)
 
@@ -124,8 +124,12 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
         return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
-
-    prep_res_str = str(prep_res)
+    
+    # adding some context?
+    ctx = case.raw_ctx.split("\n")
+    call_ctx_lines = min(10, len(ctx))
+    calling_ctx = "\n".join(ctx[:-call_ctx_lines])
+    prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
 
     formatted_messages = [
         {"role": "system", "content": prompt.system},
@@ -138,7 +142,7 @@ def call_gpt_analysis(prep, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo"
         formatted_messages.append(
             {"role": "user", "content": _provide_func_heading + func_def})
 
-    # logging.info(formatted_messages[-1])
+    logging.info(formatted_messages[-1])
 
     # for round in range(1):
     # Call the OpenAI API
@@ -372,15 +376,16 @@ def do_preprocess(prep,  model):
     
     
     if 'postcondition' in responce and 'initializer' in responce and 'suspicious' in responce:
-        responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
-            responce['suspicious'], responce['initializer'], responce['postcondition'])
+        # responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
+        #     responce['suspicious'], responce['initializer'], responce['postcondition'])
+        pass
     else:
         logging.error("ChatGPT not output in our format: ", responce)
     return json.dumps(responce)
 
 
-def do_analysis(prep, round,  model):
+def do_analysis(prep, round, case, model):
     response = call_gpt_analysis(
-        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=1.0)
+        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=1.0)
     print(response)
     return json.dumps(response)

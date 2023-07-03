@@ -107,7 +107,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                result = do_analysis(sampling_res, case.last_round,  model)
+                result = do_analysis(sampling_res, case.last_round, case, model)
 
                 if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
