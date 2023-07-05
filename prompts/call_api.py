@@ -169,7 +169,27 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
     while True:
         json_res = parse_json(assistant_message)
         if json_res is None or "ret" not in json_res:  # finish the analysis
-            break
+            # self-refinement
+            # sometimes it ask more func defs for refinment
+            formatted_messages.extend([
+                {"role": "user", "content": prompt.continue_text}
+            ])
+            assistant_message_refine = _do_request(
+                model, temperature, max_tokens, formatted_messages)
+            logging.info(assistant_message_refine)
+            dialog_id += 1
+            alog = AnalysisLog()
+            alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
+                assistant_message_refine, model)
+            
+            formatted_messages.append(
+                    {"role": "assistant", "content": assistant_message_refine})
+            if "need_more_info" not in assistant_message_refine: # we can finish safely
+                break
+            else:
+                # formatted_messages.pop() # remove the refine prompt
+                assistant_message = assistant_message_refine
+                continue
         if json_res["ret"] == "need_more_info":
             is_func_def = False
             provided_defs = ""
@@ -212,31 +232,24 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         else:
             break
 
-    # self-refinement 
-    formatted_messages.extend([
-        {"role": "user", "content": prompt.continue_text}
-    ])
-    assistant_message_final = _do_request(
-        model, temperature, max_tokens, formatted_messages)
-    
-    logging.info(assistant_message_final)
 
-    dialog_id += 1
-    alog = AnalysisLog()
-    alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
-                assistant_message_final, model)
+
+
 
     # let it generate a json output, and save the result
     # ignore interative messages
-    json_gen_msg = formatted_messages[:3] 
-    json_gen_msg += formatted_messages[-2:]
+    # json_gen_msg = formatted_messages[:3] 
+    # json_gen_msg += formatted_messages[-2:]
     
-    json_gen_msg += [
-        {"role": "assistant", "content": assistant_message_final},
+    # json_gen_msg += [
+    #     {"role": "assistant", "content": assistant_message_final},
+    #     {"role": "user", "content": prompt.json_gen}
+    # ]
+    formatted_messages.extend([
         {"role": "user", "content": prompt.json_gen}
-    ]
+    ])
     assistant_message = _do_request(
-        model, temperature, max_tokens, json_gen_msg)
+        model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalysisLog()
