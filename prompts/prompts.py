@@ -90,10 +90,10 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.4 (Jul 2, 2023)
+# analyze: version v3.5 (Jul 5, 2023)
 # upd: tweak self-refinement, listing some "always true" facts
 __analyze_system_text = """
-You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
+You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance in determining if a given function initializes the suspicious variables. 
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
 For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4", we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n", so “may_init" for n.
@@ -112,12 +112,12 @@ In this case,
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
 Once all early returns are unreachable, you can mark the variable as "must_init".
 
-an uninitialized varable can propogate and pollute other variables, so you should consider the following:
-If you see the suspicious varaible to be assigned with another stack varaible that probably to be uninitialized, you should figure out that variable's initialization as well.
+An uninitialized variable can propagate and pollute other variables, so you should consider the following:
+If you see the suspicious variable to be assigned with another stack variable that is probably to be uninitialized, you should also figure out that variable's initialization.
 
 There're some facts that we assume are always satisfied
 - A return value of a function is always initialized
-- the `adress` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
+- the `address` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
 
 You should think step by step.
 Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
@@ -127,27 +127,28 @@ And I’ll give you what you want to let you analyze it again.
 
 
 __analyze_continue_text = """
-Review the analysis above carefully; initialized is defined with "assigned"; so NULL and error code are considered valid initialization.
-All functions are callable, must return with something, and never crash or fail. The system won't crash, trap in a while(1) loop, or null pointer dereference.
+Review the analysis above carefully; consider the following:
 
-For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0, and not init when it returns non-zero;
-if it is called without any checks, we can't have any assumptions and it could do anything.
+1. All functions are callable, must return to the caller, and never crash. The system won't panic, trap in a while(1) loop or null pointer dereference.
+2. every function could fail; if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
 
-if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init."
-If the condition of "may_init" is consistant with the postcondition, or other common sense to be true, you should change it as "must_init".
+For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0 and not init when it returns non-zero;
+It can do anything if it is called without any checks (i.e., may_init).
+
+If the condition of "may_init" happens to be the postcondition or other common sense you consider true, you should change it to "must_init".
 
 Common sense to be true:
-1. constant you can calculate: for example, sizeof(int) or size of other varaibles where you know the type
-2. not null for the address of the stack varaible. Also, for suspicious variables, you can assume the address is not NULL. 
-3. function call always return (e.g., never crash, fail, or cause kernel panic)
+1. constant you can calculate to be true: for example, sizeof(int)>0 or size of other variables where you know the type
+2. The suspicious variable has a non-null address; i.e., &suspicious_var != NULL
 
+If you already see some path can return and without any init, direct conclude it's "may_init" with "confidence: true".
 
-Reconsider the "may_init" and "must_init" and think step by step.
+thinking step by step to conclude a correct and comprehensive answer
 """
 
 __analyze_json_gen = """
 based on our analysis result, generate the json format result. 
-For each "may_init",  you should indicates its condition (or say "condition": "unknown" if you can't determine):
+For each "may_init", you should also indicates its condition of initalization (or say "condition": "unknown" if you can't determine):
 For instance:
 {
 "ret": "success",
