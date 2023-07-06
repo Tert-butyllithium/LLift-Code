@@ -107,10 +107,10 @@ a = ... // init var a
 ```
 In this case,  
 - if we don't have any postcondition, directly mark "a" as may_init since it could be unreachable
-- if we have a postcondition, we have two things to determine whether this branch can be taken:
+- if we have a postcondition, the function must be satisfied after the function execution. For example, 
     1. if the postcondition conflicts with the "some_conditon", makes the early return must not take
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
-Once all early returns are unreachable, you can mark the variable as "must_init".
+Once all non_init branches are unreachable, you can mark the variable as "must_init".
 
 An uninitialized variable can propagate and pollute other variables, so you should consider the following:
 If you see the suspicious variable to be assigned with another stack variable that is probably to be uninitialized, you should also figure out that variable's initialization.
@@ -130,7 +130,8 @@ __analyze_continue_text = """
 Review the analysis above carefully; consider the following:
 
 1. All functions are callable, must return to the caller, and never crash. The system won't panic, trap in a while(1) loop or null pointer dereference.
-2. every function could fail; if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
+2. If we have postcondition, it must be satisfied after the function execution.
+3. every function could fail; if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
 
 For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0 and not init when it returns non-zero;
 It can do anything if it is called without any checks (i.e., may_init).
