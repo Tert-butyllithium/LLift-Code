@@ -1,4 +1,5 @@
 beautifulsoup4==4.12.2
+dirtyjson==1.0.8
 diskcache==5.4.0
 openai==0.27.3
 psycopg2==2.9.6
