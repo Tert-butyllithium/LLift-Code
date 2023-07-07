@@ -97,7 +97,7 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
 
 def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    _provide_func_heading = "Here it is, you can continue asking for other functions.\n"
+    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
     prep_res = json.loads(prep.initializer)
 
     # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
@@ -143,7 +143,7 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         formatted_messages.append(
             {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
         formatted_messages.append(
-            {"role": "user", "content": _provide_func_heading + func_def})
+            {"role": "user", "content": _provide_func_heading.format(func_name) + func_def})
 
     logging.info(formatted_messages[-1])
 
@@ -212,7 +212,7 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
                     provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
 
             if is_func_def:
-                provided_defs = _provide_func_heading + provided_defs
+                provided_defs = _provide_func_heading.format(func_name) + provided_defs
             else:
                 provided_defs = "" + provided_defs
 

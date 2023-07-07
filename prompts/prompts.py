@@ -59,6 +59,7 @@ Please remember that the context provided is complete and sufficient. You should
 
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
+- The initializer should be a function call. 
 - substitute the postcondition with the context of use, is it correct for both prior to use and return code failure?
 - Does the result include all its postconditions? If not, include them to make it 
 - We only consider cases the initializer should be a function, if it's not, ignore it
@@ -131,7 +132,7 @@ Review the analysis above carefully; consider the following:
 
 1. All functions are callable, must return to the caller, and never crash. The system won't panic, trap in a while(1) loop or null pointer dereference.
 2. If we have postcondition, it must be satisfied after the function execution.
-3. every function could fail; if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
+3. every function could return an error code (if it has return value); if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
 
 For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0 and not init when it returns non-zero;
 It can do anything if it is called without any checks (i.e., may_init).
