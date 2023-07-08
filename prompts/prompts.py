@@ -60,12 +60,11 @@ Please remember that the context provided is complete and sufficient. You should
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
 - The initializer should be a function call. 
-- substitute the postcondition with the context of use, is it correct for both prior to use and return code failure?
 - Does the result include all its postconditions? If not, include them to make it 
-- We only consider cases the initializer should be a function, if it's not, ignore it
-- if the use is a condition check, never include the condition in the postcondition
-- the check of postcondition shouldn't be the exact the use itself, if it does, remove it
-- You should mention the the type of each postcondition: "prior_use", "return_code_failure", ...
+- We only consider the case where the initializer is a function, and ignore it if it is not.
+- if our "use" is a check of the postcondition we have, please directly ignore the check in your postcondition extraction
+- every function could fail but alwasy return, don't say the postcondition is "the secussful execution of the function" unless it have a return value check, and you should points the check directly in that case
+- Classify the type of each postcondition: "prior_use", "return_code_failure", ...
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
 - if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
 - Thinking step by step, if there are multiple initializations, think about them one by one.
