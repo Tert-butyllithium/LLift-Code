@@ -50,7 +50,7 @@ def parse_arg_id(arg_id, argno, line_no):
 
 # Function to get the variable from the file using the given path, line number, and argno index
 def get_variable_from_file(file_path, line_number, argno):
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', errors='ignore') as file:
         lines = file.readlines()
         if 0 <= line_number - 1 < len(lines):
             line = lines[line_number - 1]
@@ -81,23 +81,24 @@ def insert_into_preprocess(parsed_data):
         line_no = raw_data['lineno']
         id = raw_data['id']
         selected = raw_data['selected']
+        priority = raw_data['priority'] if 'priority' in raw_data else None
 
         if type == 'arg_no':
             if var_name is None or '(' in var_name:
                 continue
 
         cur.execute(
-            "INSERT into preprocess (id, function, type, var_name, line_no, file, selected) VALUES (%s, %s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
-            (id, function, type, var_name, line_no, file_p, selected)
+            "INSERT into preprocess (id, function, type, var_name, line_no, file, selected, priority) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) on conflict (id) do update set file = EXCLUDED.file ",
+            (id, function, type, var_name, line_no, file_p, selected, priority)
         )
         conn.commit()
     cur.close()
 
 
 def run(table='timout', selected=False, id_offset = 0):
-    batch_size = 100
+    batch_size = 1000
     offset = 0
-    max_number = 200
+    max_number = 200000
     while offset < max_number:
         # Fetch data from the PostgreSQL database
         if selected:

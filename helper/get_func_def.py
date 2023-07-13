@@ -88,7 +88,7 @@ def get_func_loc(func_name, version="v4.14"):
                 return func_locs
 
     url = urljoin(base_url+version+"/", f'A/ident/{func_name}')
-    response = requests.get(url, timeout=5)
+    response = requests.get(url, timeout=50)
 
     func_locs = []
     if response.status_code == 200:

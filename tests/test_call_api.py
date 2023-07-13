@@ -67,7 +67,81 @@ If this condition is false, the function proceeds to the _regmap_read(map, reg, 
             ]
         }
         self.assertEqual(parse_json(response), expected_output)
+
+    def test_json3(self):
+        response = ("""
+        {
+"ret": "success",
+"response": {
+ "must_init": [],
+ "may_init": [{"name": "vbi.type", "condition": "!(sd) is false and !((sd)->ops->o && (sd)->ops->o->f) is false"}],
+ "must_no_init": [],
+}
+}
+""")
+        print(parse_json(response))
     
+    def test_json4(self):
+        response = ("""
+        The final analysis result can be presented as follows:
+```json
+{
+"ret": "success",
+"confidence": "true",
+"response": {
+ "must_init": ["pages[j]", "condition": "j < get_user_pages_unlocked(uaddr, nr_pages, pages, rw)"],
+ "may_init": ["pages[j]", "condition": "j >= get_user_pages_unlocked(uaddr, nr_pages, pages, rw)"],
+ "must_no_init": []
+}
+}
+```
+        """)
+        self.assertEqual(parse_json(response), {"error": "no json found!"})
+
+    def test_json5(self):
+        response = ("""
+        ```json
+{
+ "ret": "success",
+ "confidence": "true",
+ "response": {
+  "must_init": ["n"],
+  "may_init": [
+   {
+    "name": "p",
+    "condition": "NI"  // NI stands for Not Identified due to lack of information
+   }
+  ],
+  "must_no_init": []
+ }
+}
+```
+        """)
+        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
+
+    def test_json6(self):
+        response = ("""
+                    Based on our analysis, here is the JSON response:
+
+```json
+{
+"ret": "success",
+"confidence": "true",
+"response": {
+ "must_init": [],
+ "may_init": [
+     {"name":"reg_value", "condition": "regmap_read return 0"},
+ ],
+ "must_no_init": [],
+ "unknown": ["time_cnt"]
+}
+}
+```
+
+We have determined that `reg_value` can only be initialized when `regmap_read` returns 0, marking it as "may_init". `time_cnt` is marked as "unknown" since we do not have any specific information about its initialization.
+        """)
+        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
+
     def test_double_json(self):
         response = ("""
         In the context of your code, the suspicious variable data is initialized by the function snd_soc_read(). The return value of the function snd_soc_read() is not checked directly, therefore, we cannot express a postcondition in terms of its return value.
@@ -104,7 +178,7 @@ The above JSON shows that the suspicious variable data is initialized by the snd
             "Based on the analysis above, the JSON format result is:\n"
             "This is not a valid JSON string.\n"
         )
-        self.assertIsNone(parse_json(response))
+        self.assertEqual(parse_json(response), {"error": "no json found!"})
 
     def test_valid_response(self):
         response = (
@@ -121,6 +195,3 @@ The above JSON shows that the suspicious variable data is initialized by the snd
             "afc": None,
         }
         self.assertEqual(parse_json(response), expected_output)
-
-    def test_interactive(self):
-        pass
