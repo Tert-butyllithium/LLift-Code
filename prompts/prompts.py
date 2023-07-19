@@ -66,6 +66,7 @@ looking at the above analysis, thinking critique for the postcondition with its 
 - every function could fail but alwasy return, don't say the postcondition is "the secussful execution of the function" unless it have a return value check, and you should points the check directly in that case
 - Classify the type of each postcondition: "prior_use", "return_code_failure", ...
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
+- for `goto`, you should consider if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
 - if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
 - Thinking step by step, if there are multiple initializations, think about them one by one.
 """
