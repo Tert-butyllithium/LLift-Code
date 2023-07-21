@@ -108,7 +108,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                result = do_analysis(sampling_res, case.last_round,  model)
+                result = do_analysis(sampling_res, case.last_round, case, model)
 
                 if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
@@ -149,9 +149,17 @@ if __name__ == "__main__":
                         help='model to be used, default is gpt-4-0314')
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
+    parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
     # parser.add_argument('--temperature', type=float, default=0.7,
     #                     help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
+
+    if args.id != 0:
+        args.max_id = args.id
+        args.min_id = args.id
+        args.offset = 0
+        args.max_number = 1
+        args.max_round = INF
 
     fetch_and_update_ctx(args.group, args.max_id, args.min_id,
                          args.offset, args.max_number)

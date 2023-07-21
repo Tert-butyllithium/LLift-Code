@@ -30,5 +30,45 @@
             216
         ],
         "version": "v4.14"
+    },
+    "lookup_address": {
+        "file": "arch/x86/mm/pageattr.c",
+        "lineno": [
+            394,
+            405
+        ],
+        "version": "v4.14"
+    },
+    "lookup_address_in_pgd": {
+        "file": "arch/x86/mm/pageattr.c",
+        "lineno": [
+            349,
+            392
+        ],
+        "version": "v4.14"
+    },
+    "start_transaction":{
+        "file": "fs/btrfs/transaction.c",
+        "lineno": [
+            475,
+            611
+        ],
+        "version": "v4.14"
+    },
+    "afinfo->decode_session":{
+        "file": "net/ipv4/xfrm4_policy.c",
+        "lineno": [
+            109,
+            219
+        ],
+        "version": "v4.14"
+    },
+    "decode_rs16": {
+        "file": "lib/reed_solomon/decode_rs.c",
+        "lineno": [
+            1,
+            271
+        ],
+        "version":"v4.14"
     }
 }

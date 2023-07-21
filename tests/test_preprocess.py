@@ -39,6 +39,11 @@ class TestPreprocess(unittest.TestCase):
         postcondition = "iint != NULL"
         self.assertEqual(warp_postcondition(postcondition, initializer), "integrity_iint_find(inode) != NULL")
 
+        initializer = "decoder = devm_kzalloc(&client->dev, sizeof(*decoder), GFP_KERNEL)"
+        postcondition = "decoder != NULL"
+        self.assertEqual(warp_postcondition(postcondition, initializer), "devm_kzalloc(&client->dev, sizeof(*decoder), GFP_KERNEL) != NULL")
+
+
     def test_warp_ret_val(self):
         initializer =  "r = nci_hci_connect_gate(ndev, gates->dest_host, gates->gate, gates->pipe);"
         suspicious = ["r"]
