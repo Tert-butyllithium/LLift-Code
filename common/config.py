@@ -1,4 +1,4 @@
-LINUX_PATH = "/Volumes/Data/linux-4.14"
+LINUX_PATH = "/home/lanran/data/linux-4.14"
 DATABASE_CONFIG = {
     "host": "127.0.0.1",
     "database": "ubidb1",
