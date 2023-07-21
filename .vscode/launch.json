@@ -5,13 +5,22 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "LLift: General",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
+            "program": "run.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": ["--model", "gpt-3.5-turbo-0613", "--max_round", "1",  "--group", "2"]
+        },
+        {
+            "name": "LLift: Case 35120",
+            "type": "python",
+            "request": "launch",
+            "program": "run.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": ["--model", "gpt-4-0613", "--id", "35120",  "--group", "-2"]
         },
         {
             "name": "Python: Test Project",

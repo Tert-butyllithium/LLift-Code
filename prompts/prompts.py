@@ -7,13 +7,17 @@ class Prompt:
         self.continue_text = continue_text
 
 
-# version v3.1 (June 17, 2023)
+# version v3.4 (Jul 2, 2023)
 __preprocess_system_text = """
 As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable use.
 
 If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
 Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable use point:
+
+beyond `if(...)`, noting loop statements like `while` and `for` also perform checks. You should consider them as well according to the above description.
+
+If the suspicious variable is used in the iteration with index, include the boundary of index as a postcondition
 
 If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
 
@@ -23,15 +27,17 @@ Please remember that the context provided is complete and sufficient. You should
 """
 
 __preprocess_continue_text = """
-looking back at the analysis, thinking more carefully for the postconidtion with its context, consider the following:
-- substitute the postcondition with the context of use, is it complete for both prior to use and return code failure?
-- We only consider cases the initializer should be a function, if it's not, ignore it
-- the postcondition should be expressed in the return value and/or parameters of the initializer function, if can't, ignore it
-- the postcondition should not come from the use itself, if it does, remove it
-- the initializer should include the return value, if it was refered in the postcondition or suspicious variable
-- You should mention the the type of each postcondition: "prior_use", "return_code_failure", or "both"
+looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
+- The initializer should be a function call. 
+- Does the result include all its postconditions? If not, include them to make it 
+- We only consider the case where the initializer is a function, and ignore it if it is not.
+- if our "use" is a check of the postcondition we have, please directly ignore the check in your postcondition extraction
+- every function could fail but alwasy return, don't say the postcondition is "the secussful execution of the function" unless it have a return value check, and you should points the check directly in that case
+- Classify the type of each postcondition: "prior_use", "return_code_failure", ...
 - if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
-- Thinking step by step, if there are multiple initializations, you should respond with a list.
+- for `goto`, you should consider if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
+- if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
+- Thinking step by step, if there are multiple initializations, think about them one by one.
 """
 
 __preprocess_json_gen = """
@@ -54,11 +60,10 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.0 (Jun 14, 2023)
-# upd: using `system` instead of `user`, adapting for gpt-4-0613
-
+# analyze: version v3.5 (Jul 5, 2023)
+# upd: tweak self-refinement, listing some "always true" facts
 __analyze_system_text = """
-You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance determining if a given function initializes the suspicious variables. 
+You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance in determining if a given function initializes the suspicious variables. 
 Additionally, I will give you the postcondition, which says something will hold after the function execution.
 
 For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4", we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n", so “may_init" for n.
@@ -72,10 +77,17 @@ a = ... // init var a
 ```
 In this case,  
 - if we don't have any postcondition, directly mark "a" as may_init since it could be unreachable
-- if we have a postcondition, we have two things to determine whether this branch can be taken:
+- if we have a postcondition, the function must be satisfied after the function execution. For example, 
     1. if the postcondition conflicts with the "some_conditon", makes the early return must not take
     2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
-Once all early returns are unreachable, you can mark the variable as "must_init".
+Once all non_init branches are unreachable, you can mark the variable as "must_init".
+
+An uninitialized variable can propagate and pollute other variables, so you should consider the following:
+If you see the suspicious variable to be assigned with another stack variable that is probably to be uninitialized, you should also figure out that variable's initialization.
+
+There're some facts that we assume are always satisfied
+- A return value of a function is always initialized
+- the `address` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
 
 You should think step by step.
 Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
@@ -83,20 +95,38 @@ Anytime you feel uncertain due to unknown functions, you should stop analysis an
 And I’ll give you what you want to let you analyze it again.
 """
 
+
+__analyze_continue_text = """
+Review the analysis above carefully; consider the following:
+
+1. All functions are callable, must return to the caller, and never crash. The system won't panic, trap in a while(1) loop or null pointer dereference.
+2. If we have postcondition, it must be satisfied after the function execution.
+3. every function could return an error code (if it has return value); if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
+
+For unknown functions, if it is called under a return code check, you could assume this function init the suspicious var when it returns 0 and not init when it returns non-zero;
+It can do anything if it is called without any checks (i.e., may_init).
+
+If the condition of "may_init" happens to be the postcondition or other common sense you consider true, you should change it to "must_init".
+
+Common sense to be true:
+1. constant you can calculate to be true: for example, sizeof(int)>0 or size of other variables where you know the type
+2. The suspicious variable has a non-null address; i.e., &suspicious_var != NULL
+
+If you already see some path can return and without any init, direct conclude it's "may_init" with "confidence: true".
+
+thinking step by step to conclude a correct and comprehensive answer
+"""
+
 __analyze_json_gen = """
-Looking back your analysis, "must_init" means the variable must be initialized with the postconidtion, initialized is defined with "assigned"; so NULL and error code are considered as initialization.
-"may_init" is a safe answer, if you find some condition to make it not init, or you can't determine (say "confidence": false), you can say "may_init"
-
-Then, based on the whole discussion above, convert the analysis result to json format. You should tell me if "must_init", "may_init", or "must_no_init" for each suspicious variable.
-For each "may_init",  you should indicates its condition (if applicable)):
+based on our analysis result, generate the json format result. 
+For each "may_init", you should also indicates its condition of initalization (or say "condition": "unknown" if you can't determine):
 For instance:
-
 {
 "ret": "success",
 "confidence": "true",
 "response": {
  "must_init": ["a", "b", "c", "d"],
- "may_init": ["n", "condition": "ret_val > 4"],
+ "may_init": [{"name":"n", "condition": "ret_val > 4"}],
  "must_no_init": []
 }
 }
@@ -109,4 +139,4 @@ __analyze_json_haading = 'Since `{}` is an unknown function, I will need its def
 ####################
 
 PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen, continue_text=__preprocess_continue_text)
-AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading)
+AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
