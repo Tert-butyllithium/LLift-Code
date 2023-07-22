@@ -10,6 +10,7 @@ from dao.sampling_res import SamplingRes
 from common.config import DB_CONFIG, EVAL_RES_TABLE
 from prompts.call_api import do_preprocess, do_analysis
 
+INF = 10000000  # a large number, 10M
 
 # Create the engine
 engine = create_engine(DB_CONFIG)
@@ -98,6 +99,11 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 # we allow small inconsistency between preprocessing results
                 if sampling_res:
                     initializer = sampling_res.initializer
+
+                    if max_round != INF and max_round >= 2 and sampling_res.stable == True:
+                        logging.info(
+                            f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
+                        continue
                 else:
                     initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
@@ -130,7 +136,7 @@ if __name__ == "__main__":
     # test_preprocess_read_file()
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)-s %(filename)s:%(lineno)s - %(funcName)20s() :: %(message)s')
-    INF = 10000000  # a large number, 10M
+
 
     parser = argparse.ArgumentParser(
         description='using arguments to control the # of warnings in database to be processed')
