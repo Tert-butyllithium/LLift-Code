@@ -531,6 +531,6 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
 
 def do_analysis_all_in_one(prep, round, case, model):
     response = call_gpt_analysis_one_step(
-        prep, AnalyzePrompt, round,  model, max_tokens=1024, temperature=1.0, case=case)
+        prep, AllInOnePrompt, round,  model, max_tokens=1024, temperature=1.0, case=case)
     print(response)
     return json.dumps(response)
