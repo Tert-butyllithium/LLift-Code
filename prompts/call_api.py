@@ -17,7 +17,9 @@ exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
-    sleep(0.5) # avoid rate limit
+    sleep(0.2) # avoid rate limit
+    if "--" in model:
+        model = model.split("--")[0]
     try:
         response = openai.ChatCompletion.create(
             model=model,
