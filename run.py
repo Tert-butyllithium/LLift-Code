@@ -100,7 +100,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 if sampling_res:
                     initializer = sampling_res.initializer
 
-                    if max_round != INF and max_round >= 2 and sampling_res.stable == True:
+                    if max_round != INF and case.last_round >= 2 and sampling_res.stable == True:
                         logging.info(
                             f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
                         continue
