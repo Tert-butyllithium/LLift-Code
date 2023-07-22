@@ -184,6 +184,6 @@ You should think step by step.
 
 ####################
 
-PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen, continue_text=__preprocess_continue_text)
-AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
+# PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen, continue_text=__preprocess_continue_text)
+# AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
 AllInOnePrompt = Prompt(__all_in_one_system, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
