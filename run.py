@@ -80,7 +80,7 @@ def result_stable_check(res, new_res):
 
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
-    model = model + '--zero-with-postcondi'
+    model = model + '--one-wo-sv'
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
