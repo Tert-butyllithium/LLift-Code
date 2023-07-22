@@ -455,13 +455,34 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
     while True:
         json_res = parse_json(assistant_message)
         if json_res is None or "ret" not in json_res:  # finish the analysis
-            break
+            # self-refinement
+            # sometimes it ask more func defs for refinment
+            formatted_messages.extend([
+                {"role": "user", "content": prompt.continue_text}
+            ])
+            assistant_message_refine = _do_request(
+                model, temperature, max_tokens, formatted_messages)
+            logging.info(assistant_message_refine)
+            dialog_id += 1
+            alog = AnalysisLog()
+            alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
+                assistant_message_refine, model)
+            
+            formatted_messages.append(
+                    {"role": "assistant", "content": assistant_message_refine})
+            if "need_more_info" not in assistant_message_refine: # we can finish safely
+                break
+            else:
+                # formatted_messages.pop() # remove the refine prompt
+                assistant_message = assistant_message_refine
+                continue
         if json_res["ret"] == "need_more_info":
             is_func_def = False
             provided_defs = ""
             for require in json_res["response"]:
                 if require["type"] == "function_def":
                     is_func_def = True
+                    func_name = require["name"]
                     if 'name' not in require:
                         logging.error(f"function name not found")
                         provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
@@ -478,7 +499,7 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
                     provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
 
             if is_func_def:
-                provided_defs = _provide_func_heading + provided_defs
+                provided_defs = _provide_func_heading.format(func_name) + provided_defs
             else:
                 provided_defs = "" + provided_defs
 
@@ -498,6 +519,7 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
         else:
             break
 
+
     # self-refinement 
     # formatted_messages.extend([
     #     {"role": "user", "content": prompt.continue_text}
@@ -507,15 +529,15 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
     
     # logging.info(assistant_message_final)
 
-    dialog_id += 1
-    alog = AnalysisLog()
-    alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
-                assistant_message, model)
+    # dialog_id += 1
+    # alog = AnalysisLog()
+    # alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
+    #             assistant_message_final, model)
 
     # let it generate a json output, and save the result
     # ignore interative messages
-    json_gen_msg = formatted_messages[:3] 
-    json_gen_msg += formatted_messages[-2:]
+    # json_gen_msg = formatted_messages[:3] 
+    # json_gen_msg += formatted_messages[-2:]
     
     json_gen_msg += [
         {"role": "assistant", "content": assistant_message},
