@@ -167,75 +167,18 @@ __analyze_json_haading = 'Since `{}` is an unknown function, I will need its def
 
 
 __all_in_one_system = """
-As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable use.
+As a Linux kernel specialist, your task is to identify if there's any `use-before-initialization' bugs, by looking if a given particular suspicious variable to be initialized prior to its use, given the provided context and variable use.
 
 If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
-Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable use point. Here are the methods to identify postconditions:
+Please remember that the context provided is complete and sufficient. You should not assume any hidden code.
 
-Type A. Prior to Variable Use:
-Consider a scenario where a variable is used after a function check, such as:
-
-```
-if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
-```
-Here, the postcondition would be "ret_val>=4". Another variant (Type A') can be the use of switch(...) and the variable uses under a specific case:
-
-```
-switch(ret_val = func(..., &a)){
-  case some_condi:
-  …
-  break;
-  case critical_condi:
-     use(a) // use of a
-}
-```
-In this instance, since we're focused on the use of 'a', the postcondition here is "critical_condi".
-
-Type B. Return Code Failures:
-In some cases, the function check happens before a return code failure, such as:
-
-```
-ret_val = func(..., &a);
-if (ret_val < 0) { return/break/ goto .../...; }
-…
-use(a) // use of a
-```
-
-In this scenario, the postcondition is "ret_val>=0".
-
-If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
-
-For multiple checks, list them along with their relationships, i.e., && or ||.
-
-Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns.
-
- Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
+Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
 
 Choose the most possible one initializer, and continue the analysis with the analyzed postcondition forehead. 
 
-If you find any early returns before the assignment statement that possibly makes it unreachable:
-```
-if(some_condition){
-  return -1;
-}
-a = ... // init var a
-```
-In this case, 
-- if we don't have any postcondition, directly mark "a" as may_init since it could be unreachable
-- if we have a postcondition, we have two things to determine whether this branch can be taken:
-   1. if the postcondition conflicts with the "some_conditon", makes the early return must not take
-   2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
-Once all early returns are unreachable, you can mark the variable as "must_init".
-
-There're some facts that we assume are always satisfied
-- A return value of a function is always initialized
-- the `adress` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
-
 You should think step by step.
-Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
-{ "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
-And I’ll give you what you want to let you analyze it again.
+
 """
 
 
