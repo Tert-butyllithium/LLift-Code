@@ -537,12 +537,11 @@ def call_gpt_analysis_one_step(prep, prompt=AllInOnePrompt, round=0, model="gpt-
     # json_gen_msg = formatted_messages[:3] 
     # json_gen_msg += formatted_messages[-2:]
     
-    json_gen_msg += [
-        {"role": "assistant", "content": assistant_message_final},
+    formatted_messages.extend([
         {"role": "user", "content": prompt.json_gen}
-    ]
+    ])
     assistant_message = _do_request(
-        model, temperature, max_tokens, json_gen_msg)
+        model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
     dialog_id += 1
     alog = AnalysisLog()
