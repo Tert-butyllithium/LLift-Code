@@ -169,6 +169,45 @@ __analyze_json_haading = 'Since `{}` is an unknown function, I will need its def
 __all_in_one_system = """
 As a Linux kernel specialist, your task is to identify if there's any `use-before-initialization' bugs, by looking if a given particular suspicious variable to be initialized prior to its use, given the provided context and variable use.
 
+Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable use point. Here are the methods to identify postconditions:
+
+Type A. Prior to Variable Use:
+Consider a scenario where a variable is used after a function check, such as:
+
+```
+if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
+```
+Here, the postcondition would be "ret_val>=4". Another variant (Type A') can be the use of switch(...) and the variable uses under a specific case:
+
+```
+switch(ret_val = func(..., &a)){
+   case some_condi:
+   …
+   break;
+   case critical_condi:
+      use(a) // use of a
+}
+```
+In this instance, since we're focused on the use of 'a', the postcondition here is "critical_condi".
+
+Type B. Return Code Failures:
+In some cases, the function check happens before a return code failure, such as:
+
+```
+ret_val = func(..., &a); 
+if (ret_val < 0) { return/break/ goto .../...; }
+…
+use(a) // use of a
+```
+
+In this scenario, the postcondition is "ret_val>=0".
+
+beyond `if(...)`, noting loop statements like `while` and `for` also perform checks. You should consider them as well according to the above description.
+
+If the suspicious variable is used in the iteration with index, include the boundary of index as a postcondition
+
+If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
+
 If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
 Please remember that the context provided is complete and sufficient. You should not assume any hidden code.
