@@ -86,6 +86,9 @@ def get_func_loc(func_name, version="v4.14"):
             func_locs = cache[cache_key]
             if len(func_locs) > 0:
                 return func_locs
+            
+    if "->" in func_name:
+        return []
 
     url = urljoin(base_url+version+"/", f'A/ident/{func_name}')
     response = requests.get(url, timeout=50)
