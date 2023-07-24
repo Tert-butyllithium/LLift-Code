@@ -7,22 +7,35 @@ class Prompt:
         self.continue_text = continue_text
 
 
-# version v3.4 (Jul 2, 2023)
+# version v4.0 (Jul 23, 2023)
+# upd: change to "relevant_constraints"
 __preprocess_system_text = """
-As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, that may initialize a particular suspicious variable prior to its use, given the provided context and variable use.
+As a Linux kernel expert, your task is to identify functions (called initializers) that might initialize a particular suspect variable before using it based on the provided context and variable usage.
 
-If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
 
-Another important aspect you must highlight is the "postcondition" of the initializer. The postcondition comprises constraints that must be met in order to progress from the initializer function to the variable use point. Here are the methods to identify postconditions:
+I expect the “initializer” must be a function; for example, If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
+
+
+The suspicious uninitialized variable could propagate to another variable by assignment, for example, “X=v,” if v is uninitialized, it will make X also uninitialized. This way, you should consider the variable “X” and output the propagate: {“return”: “failed”, “propagate”: {“from”: v, “to”: X}}.
+
+
+Another important aspect you must highlight is the “check before use”, initializer usually outputs something, for example, a return value to determine whether it executes successfully. The golden rule to find the check is always “in what case to make the use happen”
+
+
+There are following typical types of checks, so you can refer:
+
+
+
 
 Type A. Prior to Variable Use:
 Consider a scenario where a variable is used after a function check, such as:
-
 ```
 if (sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n) >= 4) { // use of a, b, c, d }
 ```
-Here, the postcondition would be "ret_val>=4". Another variant (Type A') can be the use of switch(...) and the variable uses under a specific case:
+Here, the check would be "ret_val>=4". This means when the program uses a,b,c,d; it must satisfy “ret_val >= 4”.
 
+
+Another variant (Type A') is when this happens to switch(...) and the variable uses under a specific case:
 ```
 switch(ret_val = func(..., &a)){
    case some_condi:
@@ -32,58 +45,69 @@ switch(ret_val = func(..., &a)){
       use(a) // use of a
 }
 ```
-In this instance, since we're focused on the use of 'a', the postcondition here is "critical_condi".
+In this instance, since we focus on the use of 'a', the check here is "critical_condi".
+
 
 Type B. Return Code Failures:
 In some cases, the function check happens before a return code failure, such as:
-
 ```
 ret_val = func(..., &a); 
-if (ret_val < 0) { return/break/ goto .../...; }
+if (ret_val < 0) { return/break/goto label/...; }
 …
 use(a) // use of a
+
+label:
+…
+```
+In this scenario, the check is "ret_val>=0". For “goto,” you should also see the 
+
+Type B’. Retry:
+In some cases, it will retry an initializer until it a success:
+
+
+```
+while(func(&a) ==0){
+…
+}
+use(a)
 ```
 
-In this scenario, the postcondition is "ret_val>=0".
 
-beyond `if(...)`, noting loop statements like `while` and `for` also perform checks. You should consider them as well according to the above description.
+In this case, you should consider the “last” initializer to make it break the endless loop and then, therefore, reach the “use.” Hence, the check is “func(&a) != 0).
 
-If the suspicious variable is used in the iteration with index, include the boundary of index as a postcondition
+If the suspicious variable is used in the iteration with the index, include the boundary of the index as a check
 
-If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
+If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. All functions can always return to their caller.
 
-For multiple checks, list them along with their relationships, i.e., && or ||.
+Again, if you feel uncertain about finding the check, you should always consider our “golden rule”: if it affects the reachability of use?
+
+For multiple checks,  connect them with their relationships, i.e., && or ||.
 
 Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns. Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
 """
 
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
-- The initializer should be a function call. 
-- Does the result include all its postconditions? If not, include them to make it 
 - We only consider the case where the initializer is a function, and ignore it if it is not.
-- if our "use" is a check of the postcondition we have, please directly ignore the check in your postcondition extraction
-- every function could fail but alwasy return, don't say the postcondition is "the secussful execution of the function" unless it have a return value check, and you should points the check directly in that case
-- Classify the type of each postcondition: "prior_use", "return_code_failure", ...
-- if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
+- if our "use" is exactly a check, please directly ignore the check in your postcondition extraction
+- if there's no check (or, no check can be expressed in terms of return value/params), say "postcondition": null
 - for `goto`, you should consider if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
 - if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
 - Thinking step by step, if there are multiple initializations, think about them one by one.
 """
 
 __preprocess_json_gen = """
-Conclude your analysis in a json format; for example:
+The formal name of "check" is "postcondition", conclude your analysis in a json format; for example:
 {
    "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicious": ["a", "b", "c", "d"],
    "postcondition": "res >=4",
-   "postcondition_type": "prior_use"
 }
 
 For multiple initializations, respond as:
 [
- {"initializer":..., "suspicious": ..., "postcondition":... }, 
- {"initializer":...,  "suspicious": ..., "postcondition":... }
+ {"initializer":..., "suspicious": ..., "relevant_constraints":... }, 
+ {"initializer":...,  "suspicious": ..., "relevant_constraints":... }
 ]
 
 If not any initializer, albeit rare, you should return an empty list:
@@ -91,46 +115,46 @@ If not any initializer, albeit rare, you should return an empty list:
 
 """
 
-# analyze: version v3.5 (Jul 5, 2023)
-# upd: tweak self-refinement, listing some "always true" facts
+# analyze: version v4.0 (Jul 23, 2023)
 __analyze_system_text = """
-You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance in determining if a given function initializes the suspicious variables. 
-Additionally, I will give you the postcondition, which says something will hold after the function execution.
+You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance in determining if a given function initializes the suspicious variables.
+Additionally, I will give you some constraints to help your analysis, these constraints are facts must hold after the function execute, we also call them “postcondition”
 
-For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4", we can conclude that function sscanf must initialize a,b,c,d, but don’t know for “n", so “may_init" for n.
+For example, with the postcondition “sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)>=4", we can conclude that function sscanf must initialize a,b,c,d, while either init or not init for “n", so “may_init" for n.
 
-If you find any early returns before the assignment statement that possibly makes it unreachable:
+The golden rule to make a judgment is to see whether at least one “initialization” could happen.
+
+“early returns” is critical and common, if you see them before the initialization of the statement that possibly makes it unreachable, for example:
 ```
 if(some_condition){
-   return -1;
+return -1;
 }
 a = ... // init var a
 ```
-In this case,  
+In this case,
 - if we don't have any postcondition, directly mark "a" as may_init since it could be unreachable
-- if we have a postcondition, the function must be satisfied after the function execution. For example, 
-    1. if the postcondition conflicts with the "some_conditon", makes the early return must not take
-    2. if the final return statement in the if-body () conflicts with our postcondition; for example, with postcondition (return value != -1), we can infer this branch was never taken.
-Once all non_init branches are unreachable, you can mark the variable as "must_init".
+- if we have a postcondition, the function must be satisfied after the function execution. For  example, with postcondition (return value != -1), we can infer this branch was never taken (otherwise it return -1 and therefore conflicting our postcondition)
+Once at least one “initialization” could happen, you can mark the variable as "must_init".
 
-An uninitialized variable can propagate and pollute other variables, so you should consider the following:
-If you see the suspicious variable to be assigned with another stack variable that is probably to be uninitialized, you should also figure out that variable's initialization.
+An uninitialized variable can propagate and pollute other variables,
+for example, “X=v” and if v is uninitialized, it will make X also uninitialized. This way, you should take notes, focus on the variable “X” and reconsider your analysis.
 
 There're some facts that we assume are always satisfied
-- A return value of a function is always initialized
+- all functions are callable, must return to its caller, if it has a return value, the return value must be initialized with something
 - the `address` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
 
 You should think step by step.
 Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
 And I’ll give you what you want to let you analyze it again.
+
 """
 
 
 __analyze_continue_text = """
 Review the analysis above carefully; consider the following:
 
-1. All functions are callable, must return to the caller, and never crash. The system won't panic, trap in a while(1) loop or null pointer dereference.
+1. All functions are callable, must return to its caller. 
 2. If we have postcondition, it must be satisfied after the function execution.
 3. every function could return an error code (if it has return value); if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
 
