@@ -116,7 +116,9 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
 
     # remove the return value
     if '=' in cs:
-        cs = cs[len(cs.split("=")[0])+1:].strip()
+        eq_id =  len(cs.split("=")[0])
+        if eq_id < len(cs.split('(')[0]):
+            cs = cs[eq_id+1:].strip()
     if type(cs) != str:
         logging.error(f"callsite info with wrong format!")
         return {"ret": "failed", "response": "no call site info!"}
