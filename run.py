@@ -108,7 +108,8 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     # initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=None, group=group, stable=True)
-                    session.add(sampling_res)
+                
+                session.add(sampling_res)
 
                 # if not sampling_res:
                 #     sampling_res = SamplingRes(
