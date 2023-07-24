@@ -7,7 +7,7 @@ import json
 
 from dao.case_sampling import CaseSampling
 from dao.sampling_res import SamplingRes
-from common.config import DB_CONFIG, EVAL_RES_TABLE
+from common.config import DB_CONFIG, DEFAULT_TEMPERATURE
 from prompts.call_api import do_preprocess, do_analysis
 
 INF = 10000000  # a large number, 10M
@@ -79,8 +79,9 @@ def result_stable_check(res, new_res):
     return False
 
 
-def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
-    model = model + '--dev'
+def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round, temperature):
+    # if temperature != DEFAULT_TEMPERATURE:
+    model = model + '--dev-temp-{}'.format(temperature)
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
@@ -106,7 +107,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                             f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
                         continue
                 else:
-                    initializer = do_preprocess(case, model)
+                    initializer = do_preprocess(case, model, temperature)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=group, stable=True)
                     session.add(sampling_res)
@@ -114,7 +115,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                result = do_analysis(sampling_res, case.last_round, case, model)
+                result = do_analysis(sampling_res, case.last_round, case, model, temperature)
 
                 if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
@@ -161,8 +162,8 @@ if __name__ == "__main__":
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
-    # parser.add_argument('--temperature', type=float, default=0.7,
-    #                     help="control the max running round of each case; increasing to test the stablity of output")
+    parser.add_argument('--temperature', type=float, default=DEFAULT_TEMPERATURE,
+                        help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
 
     if args.id != 0:
@@ -180,4 +181,4 @@ if __name__ == "__main__":
     #     args.group, args.max_id, args.min_id, args.offset, args.max_number, args.model)
     # conn.close()
     preprocess_and_analyze(args.group, args.max_id, args.min_id,
-                           args.offset, args.max_number, args.model, args.max_round)
+                           args.offset, args.max_number, args.model, args.max_round, args.temperature)

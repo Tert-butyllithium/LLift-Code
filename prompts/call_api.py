@@ -339,12 +339,12 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
     return suspicious_vars, initializer, postcondition
 
 
-def do_preprocess(prep,  model):
+def do_preprocess(prep,  model, temperature):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)
+        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=temperature)
     print(responce)
 
     responce = parse_json(responce)
@@ -404,8 +404,8 @@ def do_preprocess(prep,  model):
     return json.dumps(responce)
 
 
-def do_analysis(prep, round, case, model):
+def do_analysis(prep, round, case, model, temperature):
     response = call_gpt_analysis(
-        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=1.0)
+        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=temperature)
     print(response)
     return json.dumps(response)
