@@ -106,12 +106,13 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                             f"Skip analysis for function {case.function}, variable {case.var_name} ...")
                         continue
                 else:
+                    initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=group, stable=True)
                 
                 session.add(sampling_res)
                 
-                initializer = do_preprocess(case, model)
+
 
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
