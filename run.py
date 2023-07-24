@@ -125,6 +125,11 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
 
                 sampling_res.result = result  # Updating the result with analysis output
 
+                if "error" in result and case.last_round > 0:
+                    logging.error(
+                        f"Failed to analyze function {case.function}, variable {case.var_name} with result {result[:100]}...")
+                    continue
+
                 logging.info(
                     f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
                 logging.info("updating last_round")
