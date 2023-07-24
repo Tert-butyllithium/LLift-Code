@@ -12,19 +12,11 @@ class Prompt:
 __preprocess_system_text = """
 As a Linux kernel expert, your task is to identify functions (called initializers) that might initialize a particular suspect variable before using it based on the provided context and variable usage.
 
-
-I expect the “initializer” must be a function; for example, If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
-
-
-The suspicious uninitialized variable could propagate to another variable by assignment, for example, “X=v,” if v is uninitialized, it will make X also uninitialized. This way, you should consider the variable “X” and output the propagate: {“return”: “failed”, “propagate”: {“from”: v, “to”: X}}.
-
+The “initializer” must be a function, and must be the "actual" function that intilizes the variable.
 
 Another important aspect you must highlight is the “check before use”, initializer usually outputs something, for example, a return value to determine whether it executes successfully. The golden rule to find the check is always “in what case to make the use happen”
 
-
 There are following typical types of checks, so you can refer:
-
-
 
 
 Type A. Prior to Variable Use:
@@ -87,12 +79,13 @@ Please remember that the context provided is complete and sufficient. You should
 """
 
 __preprocess_continue_text = """
-looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
+looking at the above analysis, thinking critique for the check with its context, consider the following:
 - We only consider the case where the initializer is a function, and ignore it if it is not.
+- if the initializer has a return value, you must include it assigning to its return value
 - if our "use" is exactly a check, please directly ignore the check in your postcondition extraction
 - if there's no check (or, no check can be expressed in terms of return value/params), say "postcondition": null
-- for `goto`, you should consider if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
-- if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
+- for `goto`, you should consider carefully to see if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
+- if one initializer has multiple checks, using boolean operators (&&, ||) to combine them
 - Thinking step by step, if there are multiple initializations, think about them one by one.
 """
 
