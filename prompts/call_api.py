@@ -369,6 +369,8 @@ def do_preprocess(prep,  model):
                 response_iterator.reverse()
                 for item in response_iterator:
                     func_call = item['initializer']
+                    if '(' not in func_call:
+                        continue
                     exclude = False
                     for exclus in exclusive_funcs:
                         if exclus in func_call:
