@@ -8,7 +8,7 @@ import json
 from dao.case_sampling import CaseSampling
 from dao.sampling_res import SamplingRes
 from common.config import DB_CONFIG, EVAL_RES_TABLE
-from prompts.call_api import do_preprocess, do_analysis_all_in_one
+from prompts.call_api import do_analysis_all_in_one
 
 INF = 10000000  # a large number, 10M
 
@@ -101,18 +101,10 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     if max_round != INF and case.last_round  >= 2 and sampling_res.stable == True:
                         logging.info(f"Skip analysis for function {case.function}, variable {case.var_name}...")
                         continue 
-                
-                sampling_res = SamplingRes(
-                    id=case.id, model=model, initializer=None, group=group, stable=True)
-                session.add(sampling_res)
-
-                if max_round != INF and case.last_round >= 2 and sampling_res.stable == True:
-                        logging.info(
-                            f"Skip analysis for function {case.function}, variable {case.var_name}")
-                        continue
-                # initializer = do_preprocess(case, model)
-                sampling_res = SamplingRes(
-                    id=case.id, model=model, initializer=None, group=group, stable=True)
+                else:
+                    # initializer = do_preprocess(case, model)
+                    sampling_res = SamplingRes(
+                        id=case.id, model=model, initializer=None, group=group, stable=True)
                 session.add(sampling_res)
 
                 # if not sampling_res:
