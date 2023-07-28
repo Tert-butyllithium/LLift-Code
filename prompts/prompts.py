@@ -44,30 +44,41 @@ if (ret_val < 0) { return/break/ goto .../...; }
 use(a) // use of a
 ```
 
-In this scenario, the postcondition is "ret_val>=0".
+In this scenario, the check is "ret_val>=0". For “goto,” you should also see the label and the the use point is under the label
 
-beyond `if(...)`, noting loop statements like `while` and `for` also perform checks. You should consider them as well according to the above description.
+Type B’. Retry:
+In some cases, it will retry an initializer until it a success:
 
-If the suspicious variable is used in the iteration with index, include the boundary of index as a postcondition
 
-If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. The function can be assumed to never fail or crash but can return any values.
+```
+while(func(&a) ==0){
+…
+}
+use(a)
+```
 
-For multiple checks, list them along with their relationships, i.e., && or ||.
+
+In this case, you should consider the “last” initializer to make it break the endless loop and then, therefore, reach the “use.” Hence, the check is “func(&a) != 0).
+
+If the suspicious variable is used in the iteration with the index, include the boundary of the index as a check
+
+If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. All functions can always return to their caller.
+
+Again, if you feel uncertain about finding the check, you should always consider our “golden rule”: if it affects the reachability of use?
+
+For multiple checks,  connect them with their relationships, i.e., && or ||.
 
 Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns. Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
 """
 
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postcondition with its context, consider the following:
-- The initializer should be a function call. 
-- Does the result include all its postconditions? If not, include them to make it 
 - We only consider the case where the initializer is a function, and ignore it if it is not.
-- if our "use" is a check of the postcondition we have, please directly ignore the check in your postcondition extraction
-- every function could fail but alwasy return, don't say the postcondition is "the secussful execution of the function" unless it have a return value check, and you should points the check directly in that case
-- Classify the type of each postcondition: "prior_use", "return_code_failure", ...
-- if there's no postcondition (or can be expressed in terms of return value/params), say "postcondition": null
-- for `goto`, you should consider if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
-- if one initializer has multiple postconditions, using boolean operators (&&, ||) to combine them
+- if the initializer has a return value, you must include it assigning to its return value
+- if our "use" is exactly a check, please directly ignore the check in your postcondition extraction
+- if there's no check (or, no check can be expressed in terms of return value/params), say "postcondition": null
+- for `goto`, you should consider carefully to see if the use is under its label, then conclude the postcondition by include its condition or its `!condition`
+- if one initializer has multiple checks, using boolean operators (&&, ||) to combine them
 - Thinking step by step, if there are multiple initializations, think about them one by one.
 """
 
