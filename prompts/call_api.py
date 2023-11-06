@@ -197,11 +197,11 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
             for require in json_res["response"]:
                 if require["type"] == "function_def":
                     is_func_def = True
-                    required_func = require["name"]
                     if 'name' not in require:
                         logging.error(f"function name not found")
-                        provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
+                        provided_defs += f"I don't find the `name` for your request {require}, please try again.\n"
                         continue
+                    required_func = require["name"]
 
                     func_def = get_func_def_easy(require["name"])
                     if func_def is not None:
@@ -396,9 +396,9 @@ def do_preprocess(prep,  model):
     
     
     if 'postcondition' in responce and 'initializer' in responce and 'suspicious' in responce:
-        # responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
-        #     responce['suspicious'], responce['initializer'], responce['postcondition'])
-        pass
+        responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
+            responce['suspicious'], responce['initializer'], responce['postcondition'])
+        # pass
     else:
         logging.error("ChatGPT not output in our format: ", responce)
     return json.dumps(responce)

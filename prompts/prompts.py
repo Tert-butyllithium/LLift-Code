@@ -75,7 +75,9 @@ Again, if you feel uncertain about finding the check, you should always consider
 
 For multiple checks,  connect them with their relationships, i.e., && or ||.
 
-Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns. Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
+Please remember that the context provided is complete and sufficient. You should not assume any hidden breaks or returns. 
+
+Think step by step, analyze each code block thoroughly and establish the postcondition (i.e., checks before use) according to these rules.
 """
 
 __preprocess_continue_text = """

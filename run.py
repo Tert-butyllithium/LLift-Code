@@ -97,8 +97,8 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
                 # we allow small inconsistency between preprocessing results
+                initializer = do_preprocess(case, model)
                 if sampling_res:
-                    initializer = do_preprocess(case, model)
                     sampling_res.initializer = initializer
                     if max_round != INF and case.last_round >= 2 and sampling_res.stable == True:
                         logging.info(
@@ -110,7 +110,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 
                 session.add(sampling_res)
                 
-                initializer = do_preprocess(case, model)
+                # initializer = do_preprocess(case, model)
 
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
