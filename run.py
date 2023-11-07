@@ -79,7 +79,7 @@ def result_stable_check(res, new_res):
     return False
 
 
-def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
+def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round, only_test):
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
@@ -92,7 +92,6 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     f"Preprocessing function {case.function} with context {case.raw_ctx[:20]}...")
 
                 # Preprocessing
-                
                 sampling_res = session.query(SamplingRes).filter(
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
@@ -132,8 +131,13 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                         f"Failed to analyze function {case.function}, variable {case.var_name} with result {result[:100]}...")
                     continue
 
+
                 logging.info(
                     f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
+                
+                if only_test:
+                    continue
+
                 logging.info("updating last_round")
                 case.last_round = case.last_round + 1
                 session.commit()
@@ -157,11 +161,12 @@ if __name__ == "__main__":
                         help='offset of the warning to be processed')
     parser.add_argument('--max_number', type=int, default=INF,
                         help='max number of the warning to be processed; default is ifinite')
-    parser.add_argument('--model', type=str, default='gpt-4-0314',
-                        help='model to be used, default is gpt-4-0314')
+    parser.add_argument('--model', type=str, default='gpt-4-1106-preview',
+                        help='model to be used, default is gpt-4-1106-preview')
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
+    parser.add_argument('--only_test', type=bool, default=False, help="only test the preprocessing and analysis of one case, w/o updating the database")
     # parser.add_argument('--temperature', type=float, default=0.7,
     #                     help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
@@ -181,4 +186,4 @@ if __name__ == "__main__":
     #     args.group, args.max_id, args.min_id, args.offset, args.max_number, args.model)
     # conn.close()
     preprocess_and_analyze(args.group, args.max_id, args.min_id,
-                           args.offset, args.max_number, args.model, args.max_round)
+                           args.offset, args.max_number, args.model, args.max_round, args.only_test)

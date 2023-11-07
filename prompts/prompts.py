@@ -14,10 +14,10 @@ As a Linux kernel expert, your task is to identify functions (called initializer
 
 The “initializer” must be a function, and must be the "actual" function that intilizes the variable.
 
-Another important aspect you must highlight is the “check before use”, initializer usually outputs something, for example, a return value to determine whether it executes successfully. The golden rule to find the check is always “in what case to make the use happen”
+Another important aspect you must highlight is the “check before use”, initializer usually outputs something, for example, a return value to determine whether it executes successfully. 
+I will point out the "use" meanwhile, the golden rule to find the check is always “in what cases to make this use happen”
 
-There are following typical types of checks, so you can refer:
-
+There are following typical examples of checks, so you can refer:
 
 Type A. Prior to Variable Use:
 Consider a scenario where a variable is used after a function check, such as:
@@ -150,7 +150,7 @@ And I’ll give you what you want to let you analyze it again.
 __analyze_continue_text = """
 Review the analysis above carefully; consider the following:
 
-1. All functions are callable, must return to its caller. 
+1. All functions are callable, must return (normal return or early return). 
 2. If we have postcondition, it must be satisfied after the function execution.
 3. every function could return an error code (if it has return value); if there's a branch not init our suspicious variable and it can go, it must go and "may_init."
 
