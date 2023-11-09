@@ -37,6 +37,11 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
         if "maximum context length" in emsg:
             if model == "gpt-3.5-turbo-0613":
                 return _do_request("gpt-3.5-turbo-16k-0613", temperature, max_tokens, formatted_messages, _retry, last_emsg)
+            else:
+                return '{"ret": "failed", "response":  "Too long " }'
+            
+        if "PromptTooLongError" in emsg:
+            return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
 
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
@@ -179,6 +184,11 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
             assistant_message_refine = _do_request(
                 model, temperature, max_tokens, formatted_messages)
             logging.info(assistant_message_refine)
+
+            if assistant_message_refine.startswith('{"ret": "failed", "response": "'):
+                # logging.error(assistant_message)
+                return json.loads(assistant_message_refine)
+
             dialog_id += 1
             alog = AnalysisLog()
             alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
