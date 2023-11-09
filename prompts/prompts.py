@@ -92,17 +92,18 @@ looking at the above analysis, thinking critique for the check with its context,
 """
 
 __preprocess_json_gen = """
-The formal name of "check" is "postcondition", conclude your analysis in a json format; for example:
+The formal name of "check" is "postcondition", conclude your analysis in a json format; 
+for example:
 {
-   "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
+   "initializer": "res = some_func(a, b, c, d)",
    "suspicious": ["a", "b", "c", "d"],
    "postcondition": "res >=4",
 }
 
 For multiple initializations, respond as:
 [
- {"initializer":..., "suspicious": ..., "relevant_constraints":... }, 
- {"initializer":...,  "suspicious": ..., "relevant_constraints":... }
+ {"initializer":..., "suspicious": ..., "postcondition":... }, 
+ {"initializer":...,  "suspicious": ..., "postcondition":... }
 ]
 
 If not any initializer, albeit rare, you should return an empty list:
