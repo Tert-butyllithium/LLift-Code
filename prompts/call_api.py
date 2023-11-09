@@ -10,11 +10,12 @@ from dao.logs import PreprocessLog, AnalysisLog
 from helper.get_func_def import get_func_def_easy
 from helper.parse_json import parse_json
 
-api_key = "../openai.key"
-openai.api_key_path = api_key
+api_key = "../anyscale.key"
+# openai.api_key_path = "api_key"
+openai.api_key = open(api_key, "r").read().strip()
+openai.api_base = 'https://api.endpoints.anyscale.com/v1'
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
-
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
     sleep(0.2) # avoid rate limit

@@ -161,8 +161,8 @@ if __name__ == "__main__":
                         help='offset of the warning to be processed')
     parser.add_argument('--max_number', type=int, default=INF,
                         help='max number of the warning to be processed; default is ifinite')
-    parser.add_argument('--model', type=str, default='gpt-4-1106-preview',
-                        help='model to be used, default is gpt-4-1106-preview')
+    parser.add_argument('--model', type=str, default='meta-llama/Llama-2-70b-chat-hf',
+                        help='model to be used, default is llama2-70b')
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
