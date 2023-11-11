@@ -171,6 +171,8 @@ if __name__ == "__main__":
     #                     help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
 
+    args.model = args.model + "--wo-pp"
+
     if args.id != 0:
         args.max_id = args.id
         args.min_id = args.id

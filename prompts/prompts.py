@@ -141,10 +141,6 @@ There're some facts that we assume are always satisfied
 - the `address` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
 
 You should think step by step.
-Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
-{ "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
-And I’ll give you what you want to let you analyze it again.
-
 """
 
 

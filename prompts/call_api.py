@@ -18,7 +18,7 @@ trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
-    sleep(0.2) # avoid rate limit
+    sleep(0.01) # avoid rate limit
     if "--" in model:
         model = model.split("--")[0]
     try:
@@ -136,10 +136,10 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
     
     # adding some context?
-    ctx = case.raw_ctx.split("\n")
-    call_ctx_lines = min(10, len(ctx))
-    calling_ctx = "\n".join(ctx[:-call_ctx_lines])
-    prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
+    # ctx = case.raw_ctx.split("\n")
+    # call_ctx_lines = min(10, len(ctx))
+    # calling_ctx = "\n".join(ctx[:-call_ctx_lines])
+    prep_res_str = str(prep_res)
 
     formatted_messages = [
         {"role": "system", "content": prompt.system},
@@ -147,8 +147,8 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         {"role": "user", "content": prep_res_str},
     ]
     if func_name not in trivial_funcs:
-        formatted_messages.append(
-            {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
+        # formatted_messages.append(
+        #     {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
         formatted_messages.append(
             {"role": "user", "content": _provide_func_heading.format(func_name) + func_def})
 
