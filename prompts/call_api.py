@@ -102,7 +102,7 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
 
 def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
+    _provide_func_heading = "[INST] Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n[\INST] "
     prep_res = json.loads(prep.initializer)
 
     # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
@@ -352,7 +352,8 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
 
 def do_preprocess(prep,  model):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
-    message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
+    message = f"[INST] suspect varaible: {prep.var_name}\nuse: {use_site}\n\nCodes:\n{prep.raw_ctx}\n\n Thinking step by step and following the given fules, you first analyze the given codes thoroughly, and then tell me the initilizer function which initilizes the suspect variable\\\
+        and the postcondition, which is(are) the condition(s) that must be met to execute the given 'use' (the place where the use of the suspect variable happens)[/INST]"
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)
