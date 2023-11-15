@@ -3,6 +3,7 @@ import logging
 from time import sleep
 import openai
 import json
+import os
 
 from prompts.prompts import *
 from dao.preprocess import Preprocess
@@ -15,9 +16,11 @@ openai.api_key_path = api_key
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
+PREPROCESS_ONLY = 'PREPROCESS_ONLY' in os.environ
+
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
-    sleep(0.2) # avoid rate limit
+    sleep(0.01) # avoid rate limit
     if "--" in model:
         model = model.split("--")[0]
     try:
@@ -33,13 +36,12 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     except Exception as e:
         logging.error(e)
         emsg = str(e)
-        if "maximum context length" in emsg:
-            if model == "gpt-3.5-turbo-0613":
-                return _do_request("gpt-3.5-turbo-16k-0613", temperature, max_tokens, formatted_messages, _retry, last_emsg)
+        if "PromptTooLongError" or "maximum context length" in emsg:
+            return '{"ret": "failed", "response":  "Too long"}'
 
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
-            return '{"ret": "failed", "response": "' + emsg[:200] + '"}'
+            return '{"ret": "failed", "response": "' + emsg[:20] + '"}'
 
         if _retry < 3 and ("context_length_exceeded" not in emsg):
             sleep(1)
@@ -51,7 +53,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     return response["choices"][0]["message"]["content"]
 
 
-def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
+def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens=2048):
 
     # Format conversation messages
     formatted_messages = [
@@ -95,8 +97,11 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     return assistant_message3.strip()
 
 
-def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
+def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=2048):
+    if PREPROCESS_ONLY:
+        return '{"ret": "failed", "response": "PREPROCESS_ONLY"}'
+
+    _provide_func_heading = "Here is the function of {}\n"
     prep_res = json.loads(prep.initializer)
 
     # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
@@ -113,7 +118,6 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
     if cs == None:
         logging.error(f"no call site info!")
         return {"ret": "failed", "response": "no call site info!"}
-
     # remove the return value
     if '=' in cs:
         cs = cs[len(cs.split("=")[0])+1:].strip()
@@ -122,7 +126,6 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         return {"ret": "failed", "response": "no call site info!"}
     func_name = cs.split("(")[0]
     func_def = get_func_def_easy(func_name)
-
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
         return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
@@ -138,6 +141,7 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         # {"role": "user", "content": prompt.system},
         {"role": "user", "content": prep_res_str},
     ]
+    _provide_func_heading = "Here is the function of {}:\n"
     if func_name not in trivial_funcs:
         formatted_messages.append(
             {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
@@ -165,6 +169,32 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         [{"role": "assistant", "content": assistant_message}])
 
     # interactive process
+    progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id)
+
+    # let it generate a json output, and save the result
+    # ignore interative messages
+    # json_gen_msg = formatted_messages[:3] 
+    # json_gen_msg += formatted_messages[-2:]
+    
+    # json_gen_msg += [
+    #     {"role": "assistant", "content": assistant_message_final},
+    #     {"role": "user", "content": prompt.json_gen}
+    # ]
+    formatted_messages.extend([
+        {"role": "user", "content": prompt.json_gen}
+    ])
+    assistant_message = _do_request(
+        model, temperature, max_tokens, formatted_messages)
+    # assistant_message = response["choices"][0]["message"]["content"]
+    dialog_id += 1
+    alog = AnalysisLog()
+    alog.commit(prep.id, round, dialog_id,
+                prompt.json_gen[:40], assistant_message, model)
+    return parse_json(assistant_message)
+
+
+def progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id):
+    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
     while True:
         json_res = parse_json(assistant_message)
         if json_res is None or "ret" not in json_res:  # finish the analysis
@@ -231,31 +261,6 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
                 {"role": "assistant", "content": assistant_message})
         else:
             break
-
-
-
-
-
-    # let it generate a json output, and save the result
-    # ignore interative messages
-    # json_gen_msg = formatted_messages[:3] 
-    # json_gen_msg += formatted_messages[-2:]
-    
-    # json_gen_msg += [
-    #     {"role": "assistant", "content": assistant_message_final},
-    #     {"role": "user", "content": prompt.json_gen}
-    # ]
-    formatted_messages.extend([
-        {"role": "user", "content": prompt.json_gen}
-    ])
-    assistant_message = _do_request(
-        model, temperature, max_tokens, formatted_messages)
-    # assistant_message = response["choices"][0]["message"]["content"]
-    dialog_id += 1
-    alog = AnalysisLog()
-    alog.commit(prep.id, round, dialog_id,
-                prompt.json_gen[:40], assistant_message, model)
-    return parse_json(assistant_message)
 
 
 
@@ -337,12 +342,12 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
     return suspicious_vars, initializer, postcondition
 
 
-def do_preprocess(prep,  model):
+def do_preprocess(prep,  model, temperature):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)
+        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=temperature)
     print(responce)
 
     responce = parse_json(responce)
@@ -400,8 +405,8 @@ def do_preprocess(prep,  model):
     return json.dumps(responce)
 
 
-def do_analysis(prep, round, case, model):
+def do_analysis(prep, round, case, model, temperature):
     response = call_gpt_analysis(
-        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=1.0)
+        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=temperature)
     print(response)
     return json.dumps(response)

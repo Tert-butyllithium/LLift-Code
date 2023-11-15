@@ -79,7 +79,7 @@ def result_stable_check(res, new_res):
     return False
 
 
-def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
+def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round, temperature):
     model = model + '--dev'
     with Session() as session:
         logging.info("Connected to database...")
@@ -132,9 +132,13 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 case.last_round = case.last_round + 1
                 session.commit()
 
+"""
+This branch is used for llamas (CodeLlama), because codeallama has different preference:
+* it doesn't support multiple turns
+"""
 
 if __name__ == "__main__":
-    # test_preprocess_read_file()
+
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)-s %(filename)s:%(lineno)s - %(funcName)20s() :: %(message)s')
 
@@ -156,8 +160,8 @@ if __name__ == "__main__":
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
-    # parser.add_argument('--temperature', type=float, default=0.7,
-    #                     help="control the max running round of each case; increasing to test the stablity of output")
+    parser.add_argument('--temperature', type=float, default=0.2,
+                        help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
 
     if args.id != 0:
@@ -175,4 +179,4 @@ if __name__ == "__main__":
     #     args.group, args.max_id, args.min_id, args.offset, args.max_number, args.model)
     # conn.close()
     preprocess_and_analyze(args.group, args.max_id, args.min_id,
-                           args.offset, args.max_number, args.model, args.max_round)
+                           args.offset, args.max_number, args.model, args.max_round, args.temperature)
