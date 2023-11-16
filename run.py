@@ -93,28 +93,27 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     f"Preprocessing function {case.function} with context {case.raw_ctx[:20]}...")
 
                 # Preprocessing
-                
                 sampling_res = session.query(SamplingRes).filter(
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
                 # we allow small inconsistency between preprocessing results
+                initializer = do_preprocess(case, model, temperature)
                 if sampling_res:
-                    initializer = sampling_res.initializer
-
+                    sampling_res.initializer = initializer
                     if max_round != INF and case.last_round >= 2 and sampling_res.stable == True:
                         logging.info(
-                            f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
+                            f"Skip analysis for function {case.function}, variable {case.var_name} ...")
                         continue
                 else:
-                    initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=group, stable=True)
-                    session.add(sampling_res)
+                
+                session.add(sampling_res)
 
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
-                result = do_analysis(sampling_res, case.last_round, case, model)
+                result = do_analysis(sampling_res, case.last_round, case, model, temperature)
 
                 if sampling_res.result and (not result_stable_check(sampling_res.result, result)):
                     sampling_res.stable = False
@@ -155,8 +154,8 @@ if __name__ == "__main__":
                         help='offset of the warning to be processed')
     parser.add_argument('--max_number', type=int, default=INF,
                         help='max number of the warning to be processed; default is ifinite')
-    parser.add_argument('--model', type=str, default='gpt-4-0314',
-                        help='model to be used, default is gpt-4-0314')
+    parser.add_argument('--model', type=str, default='codellama/CodeLlama-34b-Instruct-hf',
+                        help='model to be used, default is Codellama')
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")

@@ -11,12 +11,24 @@ from dao.logs import PreprocessLog, AnalysisLog
 from helper.get_func_def import get_func_def_easy
 from helper.parse_json import parse_json
 
+# it may not be a real openai key
 api_key = "../openai.key"
-openai.api_key_path = api_key
+openai.api_key = open(api_key, "r").read().strip()
+openai.api_base = 'https://api.endpoints.anyscale.com/v1'
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 PREPROCESS_ONLY = 'PREPROCESS_ONLY' in os.environ
+SELF_VALIDATE = 'SELF_VALIDATE' in os.environ
+
+class PreprocessRequest:
+    def __init__(self, var_name, use_point, code_context):
+        self.var_name = var_name
+        self.use_point = use_point
+        self.code_context = code_context
+    
+    def __str__(self):
+        return f"suspicous varaible: {self.var_name}\nuse: {self.use_point}\n\nCode:\n{self.code_context}"
 
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
@@ -29,9 +41,9 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
             messages=formatted_messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0,
+            top_p=0.9,
+            frequency_penalty=1.02,
+            presence_penalty=1.02,
         )
     except Exception as e:
         logging.error(e)
@@ -52,15 +64,18 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
 
     return response["choices"][0]["message"]["content"]
 
+from prompts.prompts import __initializer_extract_prompt, __initializer_json_gen, __preprocess_system_text,  __preprocess_json_gen
 
 def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens=2048):
+    __split_str = "\n--------\n"
+
+    initalize_prompt = __initializer_extract_prompt.format(
+        var_name=message.var_name, use_point=message.use_point, code_context=message.code_context)
+    
 
     # Format conversation messages
     formatted_messages = [
-        {"role": "system", "content": prompt.system},
-        # {"role": "user", "content": },
-        # {"role": "assistant","content": start_str},
-        {"role": "user", "content": message}
+        {"role": "user", "content": initalize_prompt},
     ]
 
     # Call the OpenAI API
@@ -72,29 +87,49 @@ def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens
 
     logging.info(assistant_message)
 
-    # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
-                               {"role": "user", "content": prompt.continue_text}
-                               ])
+
+    ## let itself generate the json
+
+
+    # Step 1: get the initalizer
+    new_prompt = initalize_prompt + __split_str + "The analysis result: " + assistant_message + __split_str + __initializer_json_gen
+    formatted_messages= [{"role": "user", "content": new_prompt},
+                               ]
     assistant_message2 = _do_request(
         model, temperature, max_tokens, formatted_messages)
 
     plog = PreprocessLog()
     plog.commit(item_id, assistant_message, assistant_message2, model)
 
-    logging.info(assistant_message2)
 
-    # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message2},
-                               {"role": "user", "content": prompt.json_gen}
-                               ])
+    # Step 2: get the postconstraint
+    
+    formatted_messages = [{"role": "user", "content": 
+                           __preprocess_system_text + __split_str + assistant_message2 + __split_str + initalize_prompt }]
+    
+
     assistant_message3 = _do_request(
-        model, temperature, max_tokens, formatted_messages)
+         model, temperature, max_tokens, formatted_messages)
+    
+    logging.info(assistant_message3)
+
+    if SELF_VALIDATE:
+        ...
+
+    # logging.info(assistant_message2)
+    # Step 4: get the json
+    formatted_messages = [{"role": "user", "content": 
+                           __preprocess_system_text + __split_str + assistant_message2 + __split_str + initalize_prompt + __split_str + assistant_message3 + __preprocess_json_gen }]
+    
+    assistant_message4 = _do_request(
+         model, temperature, max_tokens, formatted_messages)
+    logging.info(assistant_message4)
+
 
     plog = PreprocessLog()
-    plog.commit(item_id, assistant_message, assistant_message3, model)
+    plog.commit(item_id, assistant_message, assistant_message4, model)
 
-    return assistant_message3.strip()
+    return assistant_message4.strip()
 
 
 def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=2048):
@@ -266,17 +301,17 @@ def progressive_prompt(prep, prompt, round, model, temperature, max_tokens, form
 
 # TODO bug: if the return value reuses the parameter name
 # TODO: do we really needs it?
-def wrap_postcondition(postcondition: str, initializer):
+def wrap_postconstraint(postconstraint: str, initializer):
     """
-    wrap the postcondition if:
+    wrap the postconstraint if:
     - the initializer retutrn a value and save it to a variable
-    - the postcondition use the variable
+    - the postconstraint use the variable
     """
-    if postcondition is None:
+    if postconstraint is None:
         return None
 
     if initializer is None or '=' not in initializer:
-        return postcondition
+        return postconstraint
     if initializer[-1] == ';':
         initializer = initializer[:-1]
 
@@ -292,17 +327,17 @@ def wrap_postcondition(postcondition: str, initializer):
 
     # Workaround: if return value reuses a parameter
     # if ret_val_name in initializer_call[len(init_call_func_name):]:
-    #     return postcondition
+    #     return postconstraint
 
-    if type(postcondition) == str:
-        return postcondition.replace(ret_val_name, initializer_call)
+    if type(postconstraint) == str:
+        return postconstraint.replace(ret_val_name, initializer_call)
     else:
-        return postcondition
+        return postconstraint
 
 
 
-# change the name of return_value to `func_ret_val` and change them in postcondition and suspicious_vars
-def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
+# change the name of return_value to `func_ret_val` and change them in postconstraint and suspicious_vars
+def wrap_ret_value(suspicious_vars: list, initializer: str, postconstraint: str):
     """
     wrap the ret_value if:
     - return value is the suspicious variable
@@ -311,13 +346,13 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
     - @return: the new suspicious variables and the new initializer
     """
     if suspicious_vars is None or initializer is None:
-        return suspicious_vars, initializer, postcondition
+        return suspicious_vars, initializer, postconstraint
     
     if type(suspicious_vars) is str:
         suspicious_vars = [suspicious_vars]
 
     if '=' not in initializer:
-        return suspicious_vars, initializer, postcondition
+        return suspicious_vars, initializer, postconstraint
 
     if initializer[-1] == ';':
         initializer = initializer[:-1]
@@ -331,20 +366,20 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
         suspicious_vars.remove(ret_val_name)
         suspicious_vars.append("func_ret_val")
     
-    if type(postcondition) == list:
-        for i, post in enumerate(postcondition):
+    if type(postconstraint) == list:
+        for i, post in enumerate(postconstraint):
             if ret_val_name in post:
-                postcondition[i] = post.replace(ret_val_name, "func_ret_val", 1)
-    elif type(postcondition) == str:
-        if ret_val_name in postcondition:
-            postcondition = postcondition.replace(ret_val_name, "func_ret_val", 1)
+                postconstraint[i] = post.replace(ret_val_name, "func_ret_val", 1)
+    elif type(postconstraint) == str:
+        if ret_val_name in postconstraint:
+            postconstraint = postconstraint.replace(ret_val_name, "func_ret_val", 1)
 
-    return suspicious_vars, initializer, postcondition
+    return suspicious_vars, initializer, postconstraint
 
 
 def do_preprocess(prep,  model, temperature):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
-    message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
+    message = PreprocessRequest(prep.var_name, use_site, prep.raw_ctx)
     print(message)
     responce = call_gpt_preprocess(
         message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=temperature)
@@ -356,13 +391,13 @@ def do_preprocess(prep,  model, temperature):
     if "initializers" in responce:
         responce = responce["initializers"]
 
-    if 'postconditions' in responce:
-        responce['postcondition'] = responce['postconditions']
+    if 'postconstraints' in responce:
+        responce['postconstraint'] = responce['postconstraints']
     
 
 
     # try not do the wrap
-    if 'postcondition' not in responce:
+    if 'postconstraint' not in responce:
         try_found = False
         try:
             if type(responce) == list:
@@ -370,7 +405,7 @@ def do_preprocess(prep,  model, temperature):
             else:
                 # {"intializers":[{...}, {...}]}
                 response_iterator = next(responce.values())
-            if type(response_iterator) == list and 'postcondition' in response_iterator[-1]:
+            if type(response_iterator) == list and 'postconstraint' in response_iterator[-1]:
                 response_iterator.reverse()
                 for item in response_iterator:
                     func_call = item['initializer']
@@ -382,11 +417,11 @@ def do_preprocess(prep,  model, temperature):
                     if exclude:
                         continue
                     responce = item
-                    # responce['postcondition'] = wrap_postcondition(
-                    #     responce['postcondition'], responce['initializer'])
+                    # responce['postconstraint'] = wrap_postconstraint(
+                    #     responce['postconstraint'], responce['initializer'])
                     try_found = True
                     break
-            # assert responce['postcondition'] is None or type(responce['postcondition']) == str
+            # assert responce['postconstraint'] is None or type(responce['postconstraint']) == str
             # try_found = True
         except Exception:
             pass
@@ -396,9 +431,9 @@ def do_preprocess(prep,  model, temperature):
             return json.dumps(responce)
     
     
-    if 'postcondition' in responce and 'initializer' in responce and 'suspicious' in responce:
-        # responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
-        #     responce['suspicious'], responce['initializer'], responce['postcondition'])
+    if 'postconstraint' in responce and 'initializer' in responce and 'suspicious' in responce:
+        # responce['suspicious'], responce['initializer'], responce['postconstraint'] = wrap_ret_value(
+        #     responce['suspicious'], responce['initializer'], responce['postconstraint'])
         pass
     else:
         logging.error("ChatGPT not output in our format: ", responce)
