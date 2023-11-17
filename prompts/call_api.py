@@ -52,7 +52,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
 
 
 def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-
+    # no self-validation
     # Format conversation messages
     formatted_messages = [
         {"role": "system", "content": prompt.system},
@@ -71,19 +71,19 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
     logging.info(assistant_message)
 
     # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
-                               {"role": "user", "content": prompt.continue_text}
-                               ])
-    assistant_message2 = _do_request(
-        model, temperature, max_tokens, formatted_messages)
+    # formatted_messages.extend([{"role": "assistant", "content": assistant_message},
+    #                            {"role": "user", "content": prompt.continue_text}
+    #                            ])
+    # assistant_message2 = _do_request(
+    #     model, temperature, max_tokens, formatted_messages)
 
-    plog = PreprocessLog()
-    plog.commit(item_id, assistant_message, assistant_message2, model)
+    # plog = PreprocessLog()
+    # plog.commit(item_id, assistant_message, assistant_message2, model)
 
-    logging.info(assistant_message2)
+    # logging.info(assistant_message2)
 
     # Extend the conversation via:
-    formatted_messages.extend([{"role": "assistant", "content": assistant_message2},
+    formatted_messages.extend([{"role": "assistant", "content": assistant_message},
                                {"role": "user", "content": prompt.json_gen}
                                ])
     assistant_message3 = _do_request(
@@ -96,7 +96,7 @@ def call_gpt_preprocess(message, item_id, prompt=PreprocessPrompt, model="gpt-3.
 
 
 def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-turbo", temperature=0.7, max_tokens=2048):
-    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
+    _provide_func_heading = "Here is the function of {} .\n"
     prep_res = json.loads(prep.initializer)
 
     # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
@@ -166,8 +166,8 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
     formatted_messages.extend(
         [{"role": "assistant", "content": assistant_message}])
 
-    # interactive process
-    while True:
+    # interactive process, disable
+    while False:
         json_res = parse_json(assistant_message)
         if json_res is None or "ret" not in json_res:  # finish the analysis
             # self-refinement
