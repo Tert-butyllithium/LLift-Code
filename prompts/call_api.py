@@ -20,6 +20,18 @@ exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
 PREPROCESS_ONLY = 'PREPROCESS_ONLY' in os.environ
 SELF_VALIDATE = 'SELF_VALIDATE' in os.environ
+ENABLE_PP = 'ENABLE_PP' in os.environ
+
+# if enable pp:
+_provide_func_heading_with_pp = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
+_provide_func_heading = "Here is the function of {}\n" if not ENABLE_PP else _provide_func_heading_with_pp
+_system_ending_with_pp = """
+Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
+{ "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
+"""
+AnalyzePrompt.system += _system_ending_with_pp if ENABLE_PP else ''
+
+__split_str = "\n--------\n"
 
 class PreprocessRequest:
     def __init__(self, var_name, use_point, code_context):
@@ -67,8 +79,6 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
 from prompts.prompts import __initializer_extract_prompt, __initializer_json_gen, __preprocess_system_text,  __preprocess_json_gen
 
 def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens=2048):
-    __split_str = "\n--------\n"
-
     initalize_prompt = __initializer_extract_prompt.format(
         var_name=message.var_name, use_point=message.use_point, code_context=message.code_context)
     
@@ -165,27 +175,33 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
         logging.error(f"Cannot find function definition in {cs}")
         return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
     
-    # adding some context?
-    ctx = case.raw_ctx.split("\n")
-    call_ctx_lines = min(10, len(ctx))
-    calling_ctx = "\n".join(ctx[:-call_ctx_lines])
-    prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
+    # not adding more context
+    # ctx = case.raw_ctx.split("\n")
+    # call_ctx_lines = min(10, len(ctx))
+    # calling_ctx = "\n".join(ctx[:-call_ctx_lines])
+    # prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
+    prep_res_str = str(prep_res)
 
-    formatted_messages = [
-        {"role": "system", "content": prompt.system},
-        # {"role": "user", "content": prompt.system},
-        {"role": "user", "content": prep_res_str},
-    ]
-    _provide_func_heading = "Here is the function of {}:\n"
+    # formatted_messages = [
+    #     {"role": "system", "content": prompt.system},
+    #     # {"role": "user", "content": prompt.system},
+    #     {"role": "user", "content": prep_res_str},
+    # ]
+    system_prompt = prompt.system + __split_str  + prep_res_str 
+
+    _provide_func_heading = "and the function of {} is:\n"
     if func_name not in trivial_funcs:
-        formatted_messages.append(
-            {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
-        formatted_messages.append(
-            {"role": "user", "content": _provide_func_heading.format(func_name) + func_def})
+        # formatted_messages.append(
+        #     {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
+        # formatted_messages.append(
+        #     {"role": "user", "content": _provide_func_heading.format(func_name) + func_def})
+        system_prompt += __split_str + _provide_func_heading.format(func_name) + func_def   
 
-    logging.info(formatted_messages[-1])
+    # logging.info(formatted_messages[-1])
+    logging.info(system_prompt)
 
-    # for round in range(1):
+    formatted_messages = [{"role": "user", "content": system_prompt}]
+
     # Call the OpenAI API
     assistant_message = _do_request(
         model, temperature, max_tokens, formatted_messages)
@@ -200,11 +216,15 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
     alog = AnalysisLog()
     alog.commit(prep.id, round, dialog_id,
                 prep_res_str[:50], assistant_message, model)
-    formatted_messages.extend(
-        [{"role": "assistant", "content": assistant_message}])
+    
+
+    # formatted_messages.extend(
+    #     [{"role": "assistant", "content": assistant_message}])
+    
+    # formatted_messages = [{"role": "user", "content": second_prompt}]
 
     # interactive process
-    progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id)
+    # progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id)
 
     # let it generate a json output, and save the result
     # ignore interative messages
@@ -215,9 +235,13 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
     #     {"role": "assistant", "content": assistant_message_final},
     #     {"role": "user", "content": prompt.json_gen}
     # ]
-    formatted_messages.extend([
-        {"role": "user", "content": prompt.json_gen}
-    ])
+    # formatted_messages.extend([
+    #     {"role": "user", "content": prompt.json_gen}
+    # ])
+    # second_prompt = assistant_message + __split_str + "Ananlysis result: \n" + assistant_message + __split_str + prompt.json_gen
+    second_prompt =  "Summarize the analysis below: " +  __split_str +  "Analysis request: \n" + prep_res_str +  __split_str +   "Ananlysis result: \n" +  assistant_message +  __split_str + prompt.json_gen
+    formatted_messages = [{"role": "user", "content": second_prompt}]
+    logging.info(second_prompt)
     assistant_message = _do_request(
         model, temperature, max_tokens, formatted_messages)
     # assistant_message = response["choices"][0]["message"]["content"]
@@ -229,8 +253,7 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
 
 
 def progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id):
-    _provide_func_heading = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
-    while True:
+    while ENABLE_PP:
         json_res = parse_json(assistant_message)
         if json_res is None or "ret" not in json_res:  # finish the analysis
             # self-refinement
@@ -431,7 +454,7 @@ def do_preprocess(prep,  model, temperature):
             return json.dumps(responce)
     
     
-    if 'postconstraint' in responce and 'initializer' in responce and 'suspicious' in responce:
+    if 'postconstraint' in responce and 'initializer' in responce and 'suspicous_variable' in responce:
         # responce['suspicious'], responce['initializer'], responce['postconstraint'] = wrap_ret_value(
         #     responce['suspicious'], responce['initializer'], responce['postconstraint'])
         pass

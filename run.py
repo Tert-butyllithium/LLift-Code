@@ -17,8 +17,6 @@ engine = create_engine(DB_CONFIG)
 Session = sessionmaker(bind=engine)
 
 # This function now uses SQLAlchemy to interact with the database
-
-
 def fetch_all(session, group, max_id, min_id, offset, max_number):
     batch_size = 100
 
@@ -134,6 +132,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
 """
 This branch is used for llamas (CodeLlama), because codeallama has different preference:
 * it doesn't support multiple turns
+* it typically needs lower temperature (0.2), with frequecy panalty of ~1
 """
 
 if __name__ == "__main__":

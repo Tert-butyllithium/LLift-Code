@@ -114,8 +114,7 @@ Conclude your analysis in a json format; for example:
 {
    "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
    "suspicious": ["a", "b", "c", "d"],
-   "postconstraint": "res >=4",
-   "postconstraint_type": "prior_use"
+   "postconstraint": "res >=4"
 }
 
 For multiple initializations, respond as a list of the above objects.
@@ -157,9 +156,6 @@ There're some facts that we assume are always satisfied
 - the `address` of parameters are always "not NULL", unless it is explicitly "NULL" passed in
 
 You should think step by step.
-Anytime you feel uncertain due to unknown functions, you should stop analysis and ask me to provide its definition(s) in this way:
-{ "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
-And I’ll give you what you want to let you analyze it again.
 """
 
 
@@ -190,7 +186,6 @@ For each "may_init", you should also indicates its condition of initalization (o
 For instance:
 {
 "ret": "success",
-"confidence": "true",
 "response": {
  "must_init": ["a", "b", "c", "d"],
  "may_init": [{"name":"n", "condition": "ret_val > 4"}],
