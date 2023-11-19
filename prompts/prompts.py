@@ -181,9 +181,9 @@ thinking step by step to conclude a correct and comprehensive answer
 """
 
 __analyze_json_gen = """
-based on our analysis result, generate the json format result. 
-For each "may_init", you should also indicates its condition of initalization (or say "condition": "unknown" if you can't determine):
-For instance:
+based on the initialization analysis on a suspicious variable, convert it to json result. 
+For each "may_init", you should also indicates its condition of initalization (or say "condition": "unknown" if you can't determine): 
+The result should be simialr to the following format (NOTE: DON'T copy the comments in your result):
 {
 "ret": "success",
 "response": {

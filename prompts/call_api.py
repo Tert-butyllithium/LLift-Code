@@ -12,7 +12,7 @@ from helper.get_func_def import get_func_def_easy
 from helper.parse_json import parse_json
 
 # it may not be a real openai key
-api_key = "../openai.key"
+api_key = "../anyscale.key"
 openai.api_key = open(api_key, "r").read().strip()
 openai.api_base = 'https://api.endpoints.anyscale.com/v1'
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
@@ -40,7 +40,7 @@ class PreprocessRequest:
         self.code_context = code_context
     
     def __str__(self):
-        return f"suspicous varaible: {self.var_name}\nuse: {self.use_point}\n\nCode:\n{self.code_context}"
+        return f"suspicious varaible: {self.var_name}\nuse: {self.use_point}\n\nCode:\n{self.code_context}"
 
 
 def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, last_emsg=None):
@@ -60,12 +60,19 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     except Exception as e:
         logging.error(e)
         emsg = str(e)
+    
+        if "502 Bad Gateway" in emsg and _retry < 3:
+            sleep(1)
+            logging.info(f"Retrying {_retry + 1} time(s)...")
+            return _do_request(model, temperature, max_tokens, formatted_messages, _retry + 1, emsg)
+        
         if "PromptTooLongError" or "maximum context length" in emsg:
             return '{"ret": "failed", "response":  "Too long"}'
 
         if last_emsg is not None and emsg[:60] == last_emsg[:60]:
             logging.info("Same error")
             return '{"ret": "failed", "response": "' + emsg[:20] + '"}'
+        
 
         if _retry < 3 and ("context_length_exceeded" not in emsg):
             sleep(1)
