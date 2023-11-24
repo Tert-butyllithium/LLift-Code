@@ -4,11 +4,14 @@ from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 import json
+import time
 
 from dao.case_sampling import CaseSampling
 from dao.sampling_res import SamplingRes
 from common.config import DB_CONFIG, EVAL_RES_TABLE
 from prompts.call_api import do_preprocess, do_analysis
+
+from common.config import SELF_VALIDATE, ENABLE_PP, DEBUG_ON, CRTICAL_ON, SIMPLE_MODE
 
 INF = 10000000  # a large number, 10M
 
@@ -70,15 +73,42 @@ def result_stable_check(res, new_res):
     try:
         res = json.loads(res)
         new_res = json.loads(new_res)
-        if res['response']['must_init'] == new_res['response']['must_init']:
+
+        if 'response' in res:
+            res = res['response']
+
+        if 'response' in new_res:
+            new_res = new_res['response']
+
+        if res['must_init'] == new_res['must_init']:
             return True
     except Exception:
         return False
     return False
 
+def apply_settings(model):
+    global ENABLE_PP, SELF_VALIDATE
+    modelt = model + '--dev'
+
+    if ENABLE_PP:
+        modelt += '-pp'
+    
+    if SELF_VALIDATE:
+        modelt += '-sv'
+
+    if SIMPLE_MODE:
+        modelt = modelt + '-simple'
+        if ENABLE_PP or SELF_VALIDATE:
+            logging.warn("SIMPLE_MODE cannot be used with ENABLE_PP or SELF_VALIDATE")
+        ENABLE_PP = False
+        SELF_VALIDATE = False
+    
+    return modelt
+
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round, temperature):
-    model = model + '--dev'
+    model = apply_settings(model)
+    
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
@@ -89,12 +119,9 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
 
                 logging.info(
                     f"Preprocessing function {case.function} with context {case.raw_ctx[:20]}...")
-
-                # Preprocessing
-                sampling_res = session.query(SamplingRes).filter(
-                    SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
-                # we allow small inconsistency between preprocessing results
+                sampling_res = session.query(SamplingRes).filter(SamplingRes.id == case.id, SamplingRes.model == model).first()
+
                 initializer = do_preprocess(case, model, temperature)
                 if sampling_res:
                     sampling_res.initializer = initializer
@@ -129,6 +156,21 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 case.last_round = case.last_round + 1
                 session.commit()
 
+
+def log_settings(args):
+    print(f"SELF_VALIDATE: {SELF_VALIDATE}")
+    print(f"ENABLE_PP: {ENABLE_PP}")
+    print(f"DEBUG_ON: {DEBUG_ON}")
+    print(f"CRTICAL_ON: {CRTICAL_ON}")
+    print(f"SIMPLE_MODE: {SIMPLE_MODE}")
+
+    print(f"args.group: {args}")
+    print('=' * 20)
+
+    sleep_time = 2
+    logging.info(f"Sleeping for {sleep_time} seconds...")
+    time.sleep(sleep_time)
+
 """
 This branch is used for llamas (CodeLlama), because codeallama has different preference:
 * it doesn't support multiple turns
@@ -137,8 +179,11 @@ This branch is used for llamas (CodeLlama), because codeallama has different pre
 
 if __name__ == "__main__":
 
+    log_level = logging.DEBUG if DEBUG_ON else logging.INFO
+    log_level = logging.CRITICAL if CRTICAL_ON else log_level
+
     logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s %(levelname)-s %(filename)s:%(lineno)s - %(funcName)20s() :: %(message)s')
+        level=log_level, format='%(asctime)s %(levelname)-s %(filename)s:%(lineno)s - %(funcName)20s() :: %(message)s')
 
 
     parser = argparse.ArgumentParser(
@@ -155,7 +200,7 @@ if __name__ == "__main__":
                         help='max number of the warning to be processed; default is ifinite')
     parser.add_argument('--model', type=str, default='codellama/CodeLlama-34b-Instruct-hf',
                         help='model to be used, default is Codellama')
-    parser.add_argument('--max_round', type=int, default=1,
+    parser.add_argument('--max_round', type=int, default=INF,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
     parser.add_argument('--temperature', type=float, default=0.2,
@@ -168,6 +213,9 @@ if __name__ == "__main__":
         args.offset = 0
         args.max_number = 1
         args.max_round = INF
+
+    
+    log_settings(args)
 
     fetch_and_update_ctx(args.group, args.max_id, args.min_id,
                          args.offset, args.max_number)

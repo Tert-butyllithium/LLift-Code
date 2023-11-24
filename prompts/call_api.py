@@ -3,13 +3,14 @@ import logging
 from time import sleep
 import openai
 import json
-import os
 
 from prompts.prompts import *
 from dao.preprocess import Preprocess
 from dao.logs import PreprocessLog, AnalysisLog
 from helper.get_func_def import get_func_def_easy
 from helper.parse_json import parse_json
+
+from common.config import PREPROCESS_ONLY, SELF_VALIDATE, ENABLE_PP, SIMPLE_MODE
 
 # it may not be a real openai key
 api_key = "../anyscale.key"
@@ -18,9 +19,7 @@ openai.api_base = 'https://api.endpoints.anyscale.com/v1'
 trivial_funcs = json.load(open("prompts/trivial_funcs.json", "r"))
 exclusive_funcs = json.load(open("prompts/exclusive_funcs.json", "r"))
 
-PREPROCESS_ONLY = 'PREPROCESS_ONLY' in os.environ
-SELF_VALIDATE = 'SELF_VALIDATE' in os.environ
-ENABLE_PP = 'ENABLE_PP' in os.environ
+
 
 # if enable pp:
 _provide_func_heading_with_pp = "Here is the function of {}, you can continue asking for other functions with that json format I mentioned .\n"
@@ -30,6 +29,7 @@ Anytime you feel uncertain due to unknown functions, you should stop analysis an
 { "ret": "need_more_info", "response": [ { "type": "function_def", "name": "some_func" } ] }
 """
 AnalyzePrompt.system += _system_ending_with_pp if ENABLE_PP else ''
+
 
 __split_str = "\n--------\n"
 
@@ -84,6 +84,7 @@ def _do_request(model, temperature, max_tokens, formatted_messages, _retry=0, la
     return response["choices"][0]["message"]["content"]
 
 from prompts.prompts import __initializer_extract_prompt, __initializer_json_gen, __preprocess_system_text,  __preprocess_json_gen
+from prompts.prompts import __analyze_system_summary, __preprocess_system_summary, __preprocess_continue_text
 
 def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens=2048):
     initalize_prompt = __initializer_extract_prompt.format(
@@ -130,14 +131,27 @@ def call_gpt_preprocess(message, item_id, prompt, model, temperature, max_tokens
     
     logging.info(assistant_message3)
 
+    plog = PreprocessLog()
+    plog.commit(item_id, "[LOC PC]"+ formatted_messages[0]["content"], assistant_message3, model)
+
+
     if SELF_VALIDATE:
-        ...
+        prompt = __preprocess_system_summary + __split_str + __initializer_extract_prompt.format(
+            var_name=message.var_name, use_point=message.use_point, code_context=message.code_context
+            ) + __split_str + "The analysis result: " + assistant_message3 + __split_str + __preprocess_continue_text
+        
+        formatted_messages = [{"role": "user", "content": prompt}]
+        assistant_message3 = _do_request(
+            model, temperature, max_tokens, formatted_messages)
+        logging.debug(assistant_message3)
+        plog = PreprocessLog()
+        plog.commit(item_id, "[SV]"+ prompt, assistant_message3, model)
 
     # logging.info(assistant_message2)
     # Step 4: get the json
     formatted_messages = [{"role": "user", "content": 
-                           __preprocess_system_text + __split_str + assistant_message2 + __split_str + initalize_prompt + __split_str + assistant_message3 + __preprocess_json_gen }]
-    
+                           __preprocess_system_summary + __split_str + assistant_message2 + __split_str + initalize_prompt + __split_str + assistant_message3 + __preprocess_json_gen }]
+    logging.debug(formatted_messages[0]["content"])
     assistant_message4 = _do_request(
          model, temperature, max_tokens, formatted_messages)
     logging.info(assistant_message4)
@@ -153,56 +167,62 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
     if PREPROCESS_ONLY:
         return '{"ret": "failed", "response": "PREPROCESS_ONLY"}'
 
-    _provide_func_heading = "Here is the function of {}\n"
-    prep_res = json.loads(prep.initializer)
-
-    # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
-    if "initializer" in prep_res:
-        cs = prep_res["initializer"]
-    elif "initializers" in prep_res:
-        cs = prep_res["initializers"]
+    if SIMPLE_MODE:
+        use_site = case.raw_ctx.strip().split("\n")[-1].strip()
+        system_prompt = simple_prompt.format(var_name=case.var_name, use_point=use_site, code_context=case.raw_ctx)
+        prep_res_str = system_prompt
+        _provide_func_heading = ""
     else:
-        logging.error(f"no call site info!")
-        return {"ret": "failed", "response": "no call site info!"}
-    
-    if type(cs) == list and len(cs) > 0:
-        cs = cs[0]
-    if cs == None:
-        logging.error(f"no call site info!")
-        return {"ret": "failed", "response": "no call site info!"}
-    # remove the return value
-    if '=' in cs:
-        cs = cs[len(cs.split("=")[0])+1:].strip()
-    if type(cs) != str:
-        logging.error(f"callsite info with wrong format!")
-        return {"ret": "failed", "response": "no call site info!"}
-    func_name = cs.split("(")[0]
-    func_def = get_func_def_easy(func_name)
-    if func_def is None:
-        logging.error(f"Cannot find function definition in {cs}")
-        return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
-    
-    # not adding more context
-    # ctx = case.raw_ctx.split("\n")
-    # call_ctx_lines = min(10, len(ctx))
-    # calling_ctx = "\n".join(ctx[:-call_ctx_lines])
-    # prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
-    prep_res_str = str(prep_res)
+        _provide_func_heading = "Here is the function of {}\n"
+        prep_res = json.loads(prep.initializer)
 
-    # formatted_messages = [
-    #     {"role": "system", "content": prompt.system},
-    #     # {"role": "user", "content": prompt.system},
-    #     {"role": "user", "content": prep_res_str},
-    # ]
-    system_prompt = prompt.system + __split_str  + prep_res_str 
+        # cs = prep_res["initializer"] if "initializer" in prep_res else prep_res["initializers"]
+        if "initializer" in prep_res:
+            cs = prep_res["initializer"]
+        elif "initializers" in prep_res:
+            cs = prep_res["initializers"]
+        else:
+            logging.error(f"no call site info!")
+            return {"ret": "failed", "response": "no call site info!"}
 
-    _provide_func_heading = "and the function of {} is:\n"
-    if func_name not in trivial_funcs:
-        # formatted_messages.append(
-        #     {"role": "assistant", "content": prompt.heading.format(func_name, func_name)})
-        # formatted_messages.append(
-        #     {"role": "user", "content": _provide_func_heading.format(func_name) + func_def})
-        system_prompt += __split_str + _provide_func_heading.format(func_name) + func_def   
+        if type(cs) == list and len(cs) > 0:
+            cs = cs[0]
+        if cs == None:
+            logging.error(f"no call site info!")
+            return {"ret": "failed", "response": "no call site info!"}
+        # remove the return value
+        if '=' in cs:
+            cs = cs[len(cs.split("=")[0])+1:].strip()
+        if type(cs) != str:
+            logging.error(f"callsite info with wrong format!")
+            return {"ret": "failed", "response": "no call site info!"}
+        func_name = cs.split("(")[0]
+        func_def = get_func_def_easy(func_name)
+        if func_def is None:
+            logging.error(f"Cannot find function definition in {cs}")
+            return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
+
+        # not adding more context
+        # ctx = case.raw_ctx.split("\n")
+        # call_ctx_lines = min(10, len(ctx))
+        # calling_ctx = "\n".join(ctx[:-call_ctx_lines])
+        # prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
+        prep_res_str = str(prep_res)
+
+        # formatted_messages = [
+        #     {"role": "system", "content": prompt.system},
+        #     # {"role": "user", "content": prompt.system},
+        #     {"role": "user", "content": prep_res_str},
+        # ]
+        system_prompt = prompt.system + __split_str  + prep_res_str 
+
+        _provide_func_heading = "\nand the function of {} is:\n".format(func_name)
+        if func_name not in trivial_funcs:
+            _provide_func_heading += func_def
+            system_prompt = system_prompt + _provide_func_heading
+        else:
+            _provide_func_heading = ""
+    
 
     # logging.info(formatted_messages[-1])
     logging.info(system_prompt)
@@ -231,7 +251,56 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
     # formatted_messages = [{"role": "user", "content": second_prompt}]
 
     # interactive process
-    # progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id)
+    while ENABLE_PP:
+        json_res = parse_json(assistant_message)
+        if json_res is None or "ret" not in json_res:  # finish the analysis
+            break
+        if json_res["ret"] == "need_more_info":
+            is_func_def = False
+            provided_defs = ""
+            for require in json_res["response"]:
+                if require["type"] == "function_def":
+                    is_func_def = True
+                    required_func = require["name"]
+                    if 'name' not in require:
+                        logging.error(f"function '{required_func}' doesn't have a 'name'")
+                        provided_defs += f"No function in your request, please directly perfrom analysis\n"
+                        continue
+
+                    func_def = get_func_def_easy(require["name"])
+                    if func_def is not None:
+                        provided_defs += func_def + "\n"
+                    else:
+                        logging.error(f"function {require['name']} not found")
+                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \
+                                           If this function is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero \n"
+                else:
+                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
+
+            if is_func_def:
+                provided_defs = _provide_func_heading_with_pp.format(required_func) + provided_defs
+            else:
+                provided_defs = "" + provided_defs
+
+            # formatted_messages.extend([
+            #     {"role": "user", "content": provided_defs}
+            # ])
+            pp_prompt =  system_prompt  +  __split_str + provided_defs
+            formatted_messages = [{"role": "user", "content": pp_prompt}]
+
+            
+            assistant_message = _do_request(
+                model, temperature, max_tokens, formatted_messages)
+            logging.info(assistant_message)
+            dialog_id += 1
+            alog = AnalysisLog()
+            alog.commit(prep.id, round, dialog_id,
+                        provided_defs[:100], assistant_message, model)
+
+            # formatted_messages.append(
+            #     {"role": "assistant", "content": assistant_message})
+        else:
+            break
 
     # let it generate a json output, and save the result
     # ignore interative messages
@@ -246,7 +315,26 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
     #     {"role": "user", "content": prompt.json_gen}
     # ])
     # second_prompt = assistant_message + __split_str + "Ananlysis result: \n" + assistant_message + __split_str + prompt.json_gen
-    second_prompt =  "Summarize the analysis below: " +  __split_str +  "Analysis request: \n" + prep_res_str +  __split_str +   "Ananlysis result: \n" +  assistant_message +  __split_str + prompt.json_gen
+
+    if SELF_VALIDATE:
+        # self-validate the previous result
+        self_valid_prompt = __analyze_system_summary+ __split_str + prep_res_str + _provide_func_heading + __split_str +  "Ananlysis result: \n" 
+
+        self_valid_prompt += assistant_message + __split_str + prompt.continue_text
+
+        logging.debug(self_valid_prompt)
+        formatted_messages = [{"role": "user", "content": self_valid_prompt}]
+        assistant_message = _do_request(
+            model, temperature, max_tokens, formatted_messages)
+        logging.info(assistant_message)
+        dialog_id += 1
+
+        alog = AnalysisLog()
+        alog.commit(prep.id, round, dialog_id, self_valid_prompt[:40], assistant_message, model)
+
+
+    second_prompt =  "Summarize the analysis below: " +  __split_str +  "Analysis request: \n" + prep_res_str + _provide_func_heading
+    second_prompt +=  __split_str +   "Ananlysis result: \n" +  assistant_message +  __split_str + prompt.json_gen
     formatted_messages = [{"role": "user", "content": second_prompt}]
     logging.info(second_prompt)
     assistant_message = _do_request(
@@ -258,74 +346,6 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
                 prompt.json_gen[:40], assistant_message, model)
     return parse_json(assistant_message)
 
-
-def progressive_prompt(prep, prompt, round, model, temperature, max_tokens, formatted_messages, assistant_message, dialog_id):
-    while ENABLE_PP:
-        json_res = parse_json(assistant_message)
-        if json_res is None or "ret" not in json_res:  # finish the analysis
-            # self-refinement
-            # sometimes it ask more func defs for refinment
-            formatted_messages.extend([
-                {"role": "user", "content": prompt.continue_text}
-            ])
-            assistant_message_refine = _do_request(
-                model, temperature, max_tokens, formatted_messages)
-            logging.info(assistant_message_refine)
-            dialog_id += 1
-            alog = AnalysisLog()
-            alog.commit(prep.id, round, dialog_id, prompt.continue_text[:40],
-                assistant_message_refine, model)
-            
-            formatted_messages.append(
-                    {"role": "assistant", "content": assistant_message_refine})
-            if "need_more_info" not in assistant_message_refine: # we can finish safely
-                break
-            else:
-                # formatted_messages.pop() # remove the refine prompt
-                assistant_message = assistant_message_refine
-                continue
-        if json_res["ret"] == "need_more_info":
-            is_func_def = False
-            provided_defs = ""
-            for require in json_res["response"]:
-                if require["type"] == "function_def":
-                    is_func_def = True
-                    required_func = require["name"]
-                    if 'name' not in require:
-                        logging.error(f"function name not found")
-                        provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
-                        continue
-
-                    func_def = get_func_def_easy(require["name"])
-                    if func_def is not None:
-                        provided_defs += func_def + "\n"
-                    else:
-                        logging.error(f"function {require['name']} not found")
-                        provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \
-                                           If this function is called under a return code check, you could assume this function must init when it return 0, and must no init when it returns non-zero \n"
-                else:
-                    provided_defs += f"Sorry, no information of {require} I can provide, try to analysis with your expertise in Linux kernel\n"
-
-            if is_func_def:
-                provided_defs = _provide_func_heading.format(required_func) + provided_defs
-            else:
-                provided_defs = "" + provided_defs
-
-            formatted_messages.extend([
-                {"role": "user", "content": provided_defs}
-            ])
-            assistant_message = _do_request(
-                model, temperature, max_tokens, formatted_messages)
-            logging.info(assistant_message)
-            dialog_id += 1
-            alog = AnalysisLog()
-            alog.commit(prep.id, round, dialog_id,
-                        provided_defs[:100], assistant_message, model)
-
-            formatted_messages.append(
-                {"role": "assistant", "content": assistant_message})
-        else:
-            break
 
 
 
@@ -408,6 +428,9 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postconstraint: str)
 
 
 def do_preprocess(prep,  model, temperature):
+    if SIMPLE_MODE:
+        return '{"initializer": "__simple_mode_dummy(var)", "suspicious": ["var"], "postconstraint": null}'
+
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = PreprocessRequest(prep.var_name, use_site, prep.raw_ctx)
     print(message)
@@ -461,12 +484,12 @@ def do_preprocess(prep,  model, temperature):
             return json.dumps(responce)
     
     
-    if 'postconstraint' in responce and 'initializer' in responce and 'suspicous_variable' in responce:
-        # responce['suspicious'], responce['initializer'], responce['postconstraint'] = wrap_ret_value(
-        #     responce['suspicious'], responce['initializer'], responce['postconstraint'])
-        pass
-    else:
-        logging.error("ChatGPT not output in our format: ", responce)
+    # if 'postconstraint' in responce and 'initializer' in responce and 'suspicous_variable' in responce:
+    #     # responce['suspicious'], responce['initializer'], responce['postconstraint'] = wrap_ret_value(
+    #     #     responce['suspicious'], responce['initializer'], responce['postconstraint'])
+    #     pass
+    # else:
+    #     logging.error("ChatGPT not output in our format: ", responce)
     return json.dumps(responce)
 
 

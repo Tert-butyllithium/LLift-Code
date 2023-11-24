@@ -6,7 +6,24 @@ class Prompt:
         self.heading = heading
         self.continue_text = continue_text
 
-# version (v4.0-L) Nov 15, 2023
+
+simple_prompt = """
+as a Linux kernel specialist, your task is to identify if there's any use-before-initialization bug 
+in the provided context and variable use.
+
+You should think step by step, analyze each code block thoroughly.
+
+--------
+suspicious variable: {var_name}
+use point: {use_point}
+code: 
+{code_context}
+
+"""
+
+
+
+# version (v4.1-L) Nov 24, 2023
 
 __initializer_extract_prompt = """
 As a Linux kernel specialist, your task is to identify the function or functions, referred to as initializers, 
@@ -29,7 +46,7 @@ Beased on the result, summerize it with a json format like:
 
 {
    "initializer": "res = sscanf(str, '%u.%u.%u.%u%n', &a, &b, &c, &d, &n)",
-   "suspicous_variable": ["a", "b", "c", "d"],
+   "suspicious_variables": ["a", "b", "c", "d"],
 }
 
 For multiple initializations, respond as a list of the above objects.
@@ -98,6 +115,12 @@ Please remember that the context provided is complete and sufficient. You should
 
 """
 
+__preprocess_system_summary = """
+You are an Linux expert and you are required to identify the postconstraint of a initializer (a function that may initialize a particular suspicious variable prior to its use) given the provided context and variable use.
+
+"""
+
+
 __preprocess_continue_text = """
 looking at the above analysis, thinking critique for the postconstraint with its context, consider the following:
 - We only consider the case where the initializer is a function, and ignore it if it is not.
@@ -106,7 +129,7 @@ looking at the above analysis, thinking critique for the postconstraint with its
 - if there's no check (or, no check can be expressed in terms of return value/params), say "postconstraint": null
 - for `goto`, you should consider carefully to see if the use is under its label, then conclude the postconstraint by include its condition or its `!condition`
 - if one initializer has multiple checks, using boolean operators (&&, ||) to combine them
-- Thinking step by step, if there are multiple initializations, think about them one by one.
+- Thinking step by step, and output the correct postconstraint
 """
 
 __preprocess_json_gen = """
@@ -158,6 +181,11 @@ There're some facts that we assume are always satisfied
 You should think step by step.
 """
 
+__analyze_system_summary = """
+As a Linux expert, you are required to summarize a function behavior, which is a function that may initialize a particular suspicious variable prior to its use,
+ given the provided context and variable use, and the "post-constraint" that must be satisfied after the function execution.
+"""
+
 
 __analyze_continue_text = """
 Review the analysis above carefully; consider the following:
@@ -177,7 +205,7 @@ Common sense to be true:
 
 If you already see some path can return and without any init, direct conclude it's "may_init" with "confidence: true".
 
-thinking step by step to conclude a correct and comprehensive answer
+thinking step by step,  conclude a correct and comprehensive answer
 """
 
 __analyze_json_gen = """
@@ -194,11 +222,11 @@ The result should be simialr to the following format (NOTE: DON'T copy the comme
 }
 """
 
-__analyze_json_haading = 'Since `{}` is an unknown function, I will need its definition to continue the analysis. \n{{"ret": "need_more_info", "response": [{{"type": "function_def", "name": "{}"}}]}}'
+__analyze_json_heading = 'Since `{}` is an unknown function, I will need its definition to continue the analysis. \n{{"ret": "need_more_info", "response": [{{"type": "function_def", "name": "{}"}}]}}'
 
 
 
 ####################
 
 PreprocessPrompt = Prompt(__preprocess_system_text, __preprocess_json_gen, continue_text=__preprocess_continue_text)
-AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_haading, continue_text=__analyze_continue_text)
+AnalyzePrompt = Prompt(__analyze_system_text, __analyze_json_gen, __analyze_json_heading, continue_text=__analyze_continue_text)
