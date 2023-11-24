@@ -219,7 +219,7 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
         _provide_func_heading = "\nand the function of {} is:\n".format(func_name)
         if func_name not in trivial_funcs:
             _provide_func_heading += func_def
-            system_prompt = system_prompt + _provide_func_heading
+            system_prompt += _provide_func_heading
         else:
             _provide_func_heading = ""
     
