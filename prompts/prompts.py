@@ -167,17 +167,11 @@ __analyze_json_haading = 'Since `{}` is an unknown function, I will need its def
 
 
 __all_in_one_system = """
-As a Linux kernel specialist, your task is to identify if there's any `use-before-initialization' bugs, by looking if a given particular suspicious variable to be initialized prior to its use, given the provided context and variable use.
+As a Linux kernel specialist, your task is to identify if there's any use-before-initialization bug 
+in the provided context and variable use.
 
-If you encounter an asynchronous call like wait_for_completion, make sure to point out the "actual" initializer, which is typically delivered as a callback parameter.
+You should think step by step, analyze each code block thoroughly.
 
-Please remember that the context provided is complete and sufficient. You should not assume any hidden code.
-
-Think step by step, analyze each code block thoroughly and establish the postcondition according to these rules.
-
-Choose the most possible one initializer, and continue the analysis with the analyzed postcondition forehead. 
-
-You should think step by step.
 
 """
 
