@@ -142,6 +142,17 @@ We have determined that `reg_value` can only be initialized when `regmap_read` r
         """)
         self.assertNotEqual(parse_json(response), {"error": "no json found!"})
 
+    def test_json7(self):
+        response = ("""
+  {
+"ret": "success",
+"response": {
+ "must_init": ["a", "b", "c", "d"],
+ "may_init": [{"name":"sr", "condition": unknown}],
+ "must_no_init": []
+}
+                    """)
+        self.assertNotEqual(parse_json(response), {"error": "no json found!"})
     def test_double_json(self):
         response = ("""
         In the context of your code, the suspicious variable data is initialized by the function snd_soc_read(). The return value of the function snd_soc_read() is not checked directly, therefore, we cannot express a postcondition in terms of its return value.

@@ -202,12 +202,12 @@ def call_gpt_analysis(prep, case, prompt, round, model, temperature, max_tokens=
             logging.error(f"Cannot find function definition in {cs}")
             return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
 
-        # not adding more context
-        # ctx = case.raw_ctx.split("\n")
-        # call_ctx_lines = min(10, len(ctx))
-        # calling_ctx = "\n".join(ctx[:-call_ctx_lines])
-        # prep_res_str = str(prep_res) + "\nCall Context: ...\n" + calling_ctx
-        prep_res_str = str(prep_res)
+        # adding more context
+        ctx = case.raw_ctx.split("\n")
+        call_ctx_lines = min(10, len(ctx))
+        calling_ctx = "\n".join(ctx[:-call_ctx_lines])
+        prep_res_str = str(prep_res) + __split_str +  "\nCall Context: ...\n" + __split_str + calling_ctx
+        # prep_res_str = str(prep_res)
 
         # formatted_messages = [
         #     {"role": "system", "content": prompt.system},

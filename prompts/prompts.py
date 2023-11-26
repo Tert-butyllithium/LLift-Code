@@ -215,8 +215,8 @@ The result should be simialr to the following format (NOTE: DON'T copy the comme
 {
 "ret": "success",
 "response": {
- "must_init": ["a", "b", "c", "d"],
- "may_init": [{"name":"n", "condition": "ret_val > 4"}],
+ "must_init": ["$var1"],
+ "may_init": [{"name":"$var", "condition": "unknown"}],
  "must_no_init": []
 }
 }

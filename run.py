@@ -105,6 +105,12 @@ def apply_settings(model):
     
     return modelt
 
+def result_success(result):
+    if result.startswith('{"ret": "failed",'):
+        return False
+    if result.startswith('{"error":'):
+        return False
+    return True
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round, temperature):
     model = apply_settings(model)
@@ -147,12 +153,11 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     logging.error(f"Old result: {sampling_res.result}")
                     logging.error(f"New result: {result}")
                 # Analysis
-
-                sampling_res.result = result  # Updating the result with analysis output
-
-                logging.info(
-                    f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
-                logging.info("updating last_round")
+                if result_success(result):
+                    sampling_res.result = result  # Updating the result with analysis output
+                    logging.info(
+                        f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")
+                    logging.info("updating last_round")
                 case.last_round = case.last_round + 1
                 session.commit()
 
@@ -168,7 +173,6 @@ def log_settings(args):
     print('=' * 20)
 
     sleep_time = 2
-    logging.info(f"Sleeping for {sleep_time} seconds...")
     time.sleep(sleep_time)
 
 """
@@ -203,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_round', type=int, default=INF,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
-    parser.add_argument('--temperature', type=float, default=0.2,
+    parser.add_argument('--temperature', type=float, default=0.1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     args = parser.parse_args()
 
@@ -226,3 +230,5 @@ if __name__ == "__main__":
     # conn.close()
     preprocess_and_analyze(args.group, args.max_id, args.min_id,
                            args.offset, args.max_number, args.model, args.max_round, args.temperature)
+    print('=' * 20)
+    log_settings(args)
