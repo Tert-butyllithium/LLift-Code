@@ -98,6 +98,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
                 # we allow small inconsistency between preprocessing results
+                initializer = do_preprocess(case, model)
                 if sampling_res:
                     initializer = sampling_res.initializer
 
@@ -106,10 +107,12 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                             f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
                         continue
                 else:
-                    initializer = do_preprocess(case, model)
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=group, stable=True)
-                    session.add(sampling_res)
+                
+                session.add(sampling_res)
+                
+                # initializer = do_preprocess(case, model)
 
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
@@ -125,6 +128,11 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 # Analysis
 
                 sampling_res.result = result  # Updating the result with analysis output
+
+                if "error" in result and case.last_round > 0:
+                    logging.error(
+                        f"Failed to analyze function {case.function}, variable {case.var_name} with result {result[:100]}...")
+                    continue
 
                 logging.info(
                     f"Updated analysis for function {case.function}, variable {case.var_name} with result {result[:100]}...")

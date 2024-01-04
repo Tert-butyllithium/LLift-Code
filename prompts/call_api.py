@@ -116,7 +116,9 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
 
     # remove the return value
     if '=' in cs:
-        cs = cs[len(cs.split("=")[0])+1:].strip()
+        eq_id =  len(cs.split("=")[0])
+        if eq_id < len(cs.split('(')[0]):
+            cs = cs[eq_id+1:].strip()
     if type(cs) != str:
         logging.error(f"callsite info with wrong format!")
         return {"ret": "failed", "response": "no call site info!"}
@@ -198,8 +200,9 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
                     required_func = require["name"]
                     if 'name' not in require:
                         logging.error(f"function name not found")
-                        provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
+                        provided_defs += f"I don't find the `name` for your request {require}, please try again.\n"
                         continue
+                    required_func = require["name"]
 
                     func_def = get_func_def_easy(require["name"])
                     if func_def is not None:
@@ -369,6 +372,8 @@ def do_preprocess(prep,  model):
                 response_iterator.reverse()
                 for item in response_iterator:
                     func_call = item['initializer']
+                    if '(' not in func_call:
+                        continue
                     exclude = False
                     for exclus in exclusive_funcs:
                         if exclus in func_call:
@@ -392,9 +397,9 @@ def do_preprocess(prep,  model):
     
     
     if 'postcondition' in responce and 'initializer' in responce and 'suspicious' in responce:
-        # responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
-        #     responce['suspicious'], responce['initializer'], responce['postcondition'])
-        pass
+        responce['suspicious'], responce['initializer'], responce['postcondition'] = wrap_ret_value(
+            responce['suspicious'], responce['initializer'], responce['postcondition'])
+        # pass
     else:
         logging.error("ChatGPT not output in our format: ", responce)
     return json.dumps(responce)
