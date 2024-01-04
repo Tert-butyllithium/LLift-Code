@@ -197,6 +197,7 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
             for require in json_res["response"]:
                 if require["type"] == "function_def":
                     is_func_def = True
+                    required_func = require["name"]
                     if 'name' not in require:
                         logging.error(f"function name not found")
                         provided_defs += f"I don't find the `name` for your request {require}, please try again.\n"

@@ -53,6 +53,7 @@ label:
 ```
 In this scenario, the check is "ret_val>=0". For “goto,” you should also see the 
 
+
 Type B’. Retry:
 In some cases, it will retry an initializer until it a success:
 
@@ -72,6 +73,7 @@ If the suspicious variable is used in the iteration with the index, include the 
 If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. All functions can always return to their caller.
 
 Again, if you feel uncertain about finding the check, you should always consider our “golden rule”: if it affects the reachability of use?
+
 
 For multiple checks,  connect them with their relationships, i.e., && or ||.
 

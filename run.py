@@ -80,6 +80,7 @@ def result_stable_check(res, new_res):
 
 
 def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max_round):
+    model = model + '--dev'
     with Session() as session:
         logging.info("Connected to database...")
         for rows in fetch_all(session, group, max_id, min_id, offset, max_number):
@@ -99,10 +100,11 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 # we allow small inconsistency between preprocessing results
                 initializer = do_preprocess(case, model)
                 if sampling_res:
-                    sampling_res.initializer = initializer
+                    initializer = sampling_res.initializer
+
                     if max_round != INF and case.last_round >= 2 and sampling_res.stable == True:
                         logging.info(
-                            f"Skip analysis for function {case.function}, variable {case.var_name} ...")
+                            f"Skip analysis for function {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
                         continue
                 else:
                     sampling_res = SamplingRes(
