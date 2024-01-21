@@ -22,14 +22,17 @@ Session = sessionmaker(bind=engine)
 def fetch_all(session, group, max_id, min_id, offset, max_number):
     batch_size = 100
 
-    # count the total number of relevant rows
+    common_conditions = [
+        CaseSampling.var_name.notlike('%$%'),
+        CaseSampling.id >= min_id,
+        CaseSampling.id <= max_id
+    ]
+
+    if group != 0:
+        common_conditions.append(CaseSampling.group == group)
+
     count_query = session.query(CaseSampling).filter(
-        and_(
-            CaseSampling.group == group,
-            CaseSampling.var_name.notlike('%$%'),
-            CaseSampling.id >= min_id,
-            CaseSampling.id <= max_id
-        )
+        and_(*common_conditions)
     )
 
     real_max_num = count_query.count()
@@ -147,7 +150,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description='using arguments to control the # of warnings in database to be processed')
-    parser.add_argument('--group', type=int, required=True,
+    parser.add_argument('--group', type=int, default=0,
                         help='the group of experiment')
     parser.add_argument('--max_id', type=int, default=INF,
                         help='max id of the warning to be processed; default is INF, id is the original identify from static analysis of UBITect')
@@ -157,8 +160,8 @@ if __name__ == "__main__":
                         help='offset of the warning to be processed')
     parser.add_argument('--max_number', type=int, default=INF,
                         help='max number of the warning to be processed; default is ifinite')
-    parser.add_argument('--model', type=str, default='gpt-4-0314',
-                        help='model to be used, default is gpt-4-0314')
+    parser.add_argument('--model', type=str, default='gpt-4-0613',
+                        help='model to be used, default is gpt-4-0613')
     parser.add_argument('--max_round', type=int, default=1,
                         help="control the max running round of each case; increasing to test the stablity of output")
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")

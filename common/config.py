@@ -6,7 +6,12 @@ DATABASE_CONFIG = {
     "password": "ubitect",
 }
 
-DB_CONFIG = 'postgresql://ubiuser1:ubitect@127.0.0.1:5432/ubidb1'
+DB_CONFIG = 'postgresql://ubiuser1:ubitect@127.0.0.1:5433/ubidb1'
+
+SUP_PROJ = {
+    "edk2": "/home/yzhai003/edk2"
+    "linux-6.0.2": "/home/yzhai003/linux"
+}
 
 EVAL_SAMPLING_TABLE = 'case_sampling'
 EVAL_RES_TABLE = 'sampling_res'
