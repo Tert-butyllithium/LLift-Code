@@ -7,7 +7,7 @@ import json
 from prompts.prompts import *
 from dao.preprocess import Preprocess
 from dao.logs import PreprocessLog, AnalysisLog
-from helper.get_func_def import get_func_def_easy
+from helper.get_func_def import get_func_def
 from helper.parse_json import parse_json
 
 api_key = "../openai.key"
@@ -123,11 +123,13 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         logging.error(f"callsite info with wrong format!")
         return {"ret": "failed", "response": "no call site info!"}
     func_name = cs.split("(")[0]
-    func_def = get_func_def_easy(func_name)
+    func_def = get_func_def(case.proj, case.function, func_name)
+    cur_func = func_name
 
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
-        return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
+        # return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
+        func_def = f"Sorry, I don't find function {cs}, try to analysis with your expertise"
     
     # adding some context?
     ctx = case.raw_ctx.split("\n")
@@ -203,9 +205,13 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
                         provided_defs += f"Sorry, I don't find the `name` for your request {require}, please try again.\n"
                         continue
 
-                    func_def = get_func_def_easy(require["name"])
+                    # func_def = get_func_def_easy(require["name"])
+                    # 
+                    func_def = get_func_def(case.proj, cur_func, require["name"])
                     if func_def is not None:
                         provided_defs += func_def + "\n"
+                        #TODO: not a perfect solution; should get_analyzing_ctx
+                        cur_func = require["name"]
                     else:
                         logging.error(f"function {require['name']} not found")
                         provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \

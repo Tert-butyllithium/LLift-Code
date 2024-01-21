@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import os
 import sys
 from diskcache import Cache
+from helper.interact import interactive_func_def
 from common.config import LINUX_PATH
 
 __location__ = os.path.realpath(
@@ -86,7 +87,7 @@ def get_func_loc(func_name, version="v4.14"):
             func_locs = cache[cache_key]
             if len(func_locs) > 0:
                 return func_locs
-            
+
     if "->" in func_name:
         return []
 
@@ -135,6 +136,19 @@ def get_func_def_easy(func_name: str, version="v4.14", linux_path=LINUX_PATH):
             return read_function_definition(file_path, line_number, linux_path)
     file_path, line_number = split_func_loc(func_locs[0])
     return read_function_definition(file_path, line_number, linux_path)
+
+
+def get_func_def(proj, cur_func, req_func):
+    if proj == 'linux':
+        return get_func_def_easy(req_func)
+    else:
+        with Cache(cache_dir+"/cache_interact", size_limit=1 * 1024 ** 3) as cache:
+            # Create a cache key using the function name and version, with size limit = 1GB
+            cache_key = f"{proj}:{req_func}"
+            if cache_key not in cache:
+                res = interactive_func_def(proj, cur_func, req_func)
+                cache[cache_key] = res
+            return cache[cache_key]
 
 # if __name__ == "__main__":
 

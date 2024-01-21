@@ -21,6 +21,7 @@ class CaseSampling(Base):
     type = Column(String)
     notes = Column(String)
     raw_ctx = Column(Text)
+    proj = Column(String)
 
     def update_raw_ctx(self):
         file_path = os.path.join(LINUX_PATH, self.file)

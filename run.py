@@ -112,7 +112,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                 else:
                     initializer = do_preprocess(case, model, temperature)
                     sampling_res = SamplingRes(
-                        id=case.id, model=model, initializer=initializer, group=group, stable=True)
+                        id=case.id, model=model, initializer=initializer, group=case.group, stable=True)
                     session.add(sampling_res)
 
                 logging.info(
