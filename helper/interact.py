@@ -3,7 +3,7 @@ from plyer import notification
 
 # This is a helper function to interact with the user
 
-
+#TODO: 1) add a timeout, 2) check if the `req_func` is in the user input
 def interactive_func_def(proj, cur_func, req_func):
 
     questions = [

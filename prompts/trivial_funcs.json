@@ -1,5 +1,6 @@
 [
     "sscanf",
     "kstrtoul",
-    "snprintf"
+    "snprintf",
+    "strtoul"
 ]

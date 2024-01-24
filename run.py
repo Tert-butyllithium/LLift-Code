@@ -167,6 +167,7 @@ if __name__ == "__main__":
     parser.add_argument('--id', type=int, default=0, help="specifify the item to be processed \nNOTE: it will overwrite the max_id, min_id, offset, max_number, max_round")
     parser.add_argument('--temperature', type=float, default=DEFAULT_TEMPERATURE,
                         help="control the max running round of each case; increasing to test the stablity of output")
+    
     args = parser.parse_args()
 
     if args.id != 0:

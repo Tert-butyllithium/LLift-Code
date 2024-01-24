@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 import logging
-from common.config import LINUX_PATH
+from common.config import LINUX_PATH, SUP_PROJ
 import os
 
 
@@ -24,7 +24,14 @@ class CaseSampling(Base):
     proj = Column(String)
 
     def update_raw_ctx(self):
-        file_path = os.path.join(LINUX_PATH, self.file)
+        if self.proj == 'linux':
+            proj_path = LINUX_PATH
+        elif self.proj in SUP_PROJ:
+            proj_path = SUP_PROJ[self.proj]
+        else:
+            logging.error(f"Project {self.proj} not supported. Check 'SUP_PROJ' in common/config.py")
+            return
+        file_path = os.path.join(proj_path, self.file)
         function_start = -1
 
         with open(file_path, 'r', errors='ignore') as f:
