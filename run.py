@@ -102,6 +102,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     SamplingRes.id == case.id, SamplingRes.model == model).first()
                 
                 # we allow small inconsistency between preprocessing results
+                initializer = do_preprocess(case, model)
                 if sampling_res:
                     initializer = sampling_res.initializer
 
@@ -114,7 +115,7 @@ def preprocess_and_analyze(group, max_id, min_id, offset, max_number, model, max
                     sampling_res = SamplingRes(
                         id=case.id, model=model, initializer=initializer, group=case.group, stable=True)
                     session.add(sampling_res)
-
+                    
                 logging.info(
                     f"analyzing {case.function}, variable {case.var_name} with initializer {initializer[:100]}...")
 
