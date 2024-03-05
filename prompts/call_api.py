@@ -7,7 +7,7 @@ import json
 from prompts.prompts import *
 from dao.preprocess import Preprocess
 from dao.logs import PreprocessLog, AnalysisLog
-from helper.get_func_def import get_func_def_easy
+from helper.get_func_def import get_func_def
 from helper.parse_json import parse_json
 
 api_key = "../openai.key"
@@ -123,11 +123,13 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
         logging.error(f"callsite info with wrong format!")
         return {"ret": "failed", "response": "no call site info!"}
     func_name = cs.split("(")[0]
-    func_def = get_func_def_easy(func_name)
+    func_def = get_func_def(case.proj, case.function, func_name)
+    cur_func = func_name
 
     if func_def is None:
         logging.error(f"Cannot find function definition in {cs}")
-        return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
+        # return {"ret": "failed", "response": f"Cannot find function definition in {cs}"}
+        func_def = f"Sorry, I don't find function {cs}, try to analysis with your expertise"
     
     # adding some context?
     ctx = case.raw_ctx.split("\n")
@@ -204,9 +206,13 @@ def call_gpt_analysis(prep, case, prompt=AnalyzePrompt, round=0, model="gpt-3.5-
                         continue
                     required_func = require["name"]
 
-                    func_def = get_func_def_easy(require["name"])
+                    # func_def = get_func_def_easy(require["name"])
+                    # 
+                    func_def = get_func_def(case.proj, cur_func, require["name"])
                     if func_def is not None:
                         provided_defs += func_def + "\n"
+                        #TODO: not a perfect solution; should get_analyzing_ctx
+                        cur_func = require["name"]
                     else:
                         logging.error(f"function {require['name']} not found")
                         provided_defs += f"Sorry, I don't find function {require['name']}, try to analysis with your expertise in Linux kernel\n \
@@ -340,12 +346,12 @@ def wrap_ret_value(suspicious_vars: list, initializer: str, postcondition: str):
     return suspicious_vars, initializer, postcondition
 
 
-def do_preprocess(prep,  model):
+def do_preprocess(prep,  model, temperature):
     use_site = prep.raw_ctx.strip().split("\n")[-1].strip()
     message = f"suspicous varaible: {prep.var_name}\nuse: {use_site}\n\nCode:\n{prep.raw_ctx}"
     print(message)
     responce = call_gpt_preprocess(
-        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=1.0)
+        message, prep.id, PreprocessPrompt, model, max_tokens=1024, temperature=temperature)
     print(responce)
 
     responce = parse_json(responce)
@@ -405,8 +411,8 @@ def do_preprocess(prep,  model):
     return json.dumps(responce)
 
 
-def do_analysis(prep, round, case, model):
+def do_analysis(prep, round, case, model, temperature):
     response = call_gpt_analysis(
-        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=1.0)
+        prep, case, AnalyzePrompt, round, model, max_tokens=1024, temperature=temperature)
     print(response)
     return json.dumps(response)

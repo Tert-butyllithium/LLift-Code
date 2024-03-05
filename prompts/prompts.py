@@ -50,9 +50,9 @@ use(a) // use of a
 
 label:
 …
+
 ```
 In this scenario, the check is "ret_val>=0". For “goto,” you should also see the 
-
 
 Type B’. Retry:
 In some cases, it will retry an initializer until it a success:
@@ -73,6 +73,9 @@ If the suspicious variable is used in the iteration with the index, include the 
 If there's NO explicit control change (like return, break, or goto) that prevents reaching the variable's use point, you should disregard it as it provides no guarantees. All functions can always return to their caller.
 
 Again, if you feel uncertain about finding the check, you should always consider our “golden rule”: if it affects the reachability of use?
+
+For multiple checks,  connect them with their relationships, i.e., && or ||.
+
 
 
 For multiple checks,  connect them with their relationships, i.e., && or ||.
@@ -113,7 +116,6 @@ If not any initializer, albeit rare, you should return an empty list:
 """
 
 # analyze: version v4.0 (Jul 23, 2023)
-# TODO (haonan): avoid the overuse of `condition`
 __analyze_system_text = """
 You are an experienced Linux program analysis expert. I am working on analyzing the Linux kernel for a specific type of bug called "use-before-initialization." I need your assistance in determining if a given function initializes the suspicious variables.
 Additionally, I will give you some constraints to help your analysis, these constraints are facts must hold after the function execute, we also call them “postcondition”
